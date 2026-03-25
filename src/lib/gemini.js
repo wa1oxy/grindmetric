@@ -178,13 +178,25 @@ Be accurate with common portions. If amounts are vague, use standard serving siz
   }
 }
 
+function stripDataUrl(dataUrl) {
+  if (!dataUrl) return dataUrl
+  // Gemini needs raw base64 only — strip "data:image/...;base64," prefix
+  const idx = dataUrl.indexOf(',')
+  return idx !== -1 ? dataUrl.slice(idx + 1) : dataUrl
+}
+
 async function callGemini(prompt, base64Image = null, customParts = null) {
   if (!GEMINI_API_KEY) return null
 
   let parts = customParts || [{ text: prompt }]
   if (!customParts && base64Image) {
-    parts.push({ inline_data: { mime_type: 'image/jpeg', data: base64Image } })
+    parts.push({ inline_data: { mime_type: 'image/jpeg', data: stripDataUrl(base64Image) } })
   }
+
+  // Strip data URL prefixes from any inline_data parts
+  parts = parts.map(p =>
+    p.inline_data ? { ...p, inline_data: { ...p.inline_data, data: stripDataUrl(p.inline_data.data) } } : p
+  )
 
   try {
     const res = await fetch(
