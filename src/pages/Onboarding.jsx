@@ -75,11 +75,24 @@ export default function Onboarding({ onComplete }) {
     setStep(s => s - 1)
   }
 
+  const compressImage = (dataUrl, maxSize = 1024, quality = 0.75) => new Promise(resolve => {
+    const img = new Image()
+    img.onload = () => {
+      const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1)
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(img.width * ratio)
+      canvas.height = Math.round(img.height * ratio)
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+      resolve(canvas.toDataURL('image/jpeg', quality))
+    }
+    img.src = dataUrl
+  })
+
   const handlePhotoUpload = (e, setter) => {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = ev => setter(ev.target.result)
+    reader.onload = async ev => setter(await compressImage(ev.target.result))
     reader.readAsDataURL(file)
     e.target.value = ''
   }

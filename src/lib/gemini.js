@@ -188,8 +188,10 @@ async function callGemini(prompt, base64Image = null, customParts = null) {
       }
     )
     const data = await res.json()
+    if (data?.error) console.error('[Gemini] API error:', data.error.message)
     return data?.candidates?.[0]?.content?.parts?.[0]?.text || null
-  } catch {
+  } catch (err) {
+    console.error('[Gemini] fetch error:', err)
     return null
   }
 }
