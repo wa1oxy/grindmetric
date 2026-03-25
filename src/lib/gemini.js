@@ -86,12 +86,14 @@ Be direct, specific, and brutally honest. No motivational fluff. Format clearly 
   if (dreamPhotoBase64) parts.push({ inline_data: { mime_type: 'image/jpeg', data: dreamPhotoBase64 } })
 
   const result = await callGemini(prompt, null, parts)
+  if (result === '__NO_API_KEY__') return '⚠️ Gemini API key is not configured. Please add VITE_GEMINI_API_KEY to your Vercel environment variables and redeploy.'
   if (result) return result
 
   // Retry without photos if multimodal call failed
   if (currentPhotoBase64 || dreamPhotoBase64) {
+    console.warn('[Gemini] Multimodal call failed, retrying without photos...')
     const fallback = await callGemini(prompt)
-    if (fallback) return fallback
+    if (fallback && fallback !== '__NO_API_KEY__') return fallback
   }
 
   return 'Could not generate plan. Check your internet connection and try again.'
@@ -186,7 +188,10 @@ function stripDataUrl(dataUrl) {
 }
 
 async function callGemini(prompt, base64Image = null, customParts = null) {
-  if (!GEMINI_API_KEY) return null
+  if (!GEMINI_API_KEY) {
+    console.error('[Gemini] VITE_GEMINI_API_KEY is not set')
+    return '__NO_API_KEY__'
+  }
 
   let parts = customParts || [{ text: prompt }]
   if (!customParts && base64Image) {
@@ -200,7 +205,7 @@ async function callGemini(prompt, base64Image = null, customParts = null) {
 
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
