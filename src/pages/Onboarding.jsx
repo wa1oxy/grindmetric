@@ -59,6 +59,7 @@ export default function Onboarding({ onComplete }) {
   // Plan generation
   const [generating, setGenerating] = useState(false)
   const [plan, setPlan] = useState(null)
+  const [validating, setValidating] = useState(false)
 
   const currentRef = useRef()
   const dreamRef = useRef()
@@ -197,17 +198,19 @@ export default function Onboarding({ onComplete }) {
                     type="password" placeholder="Password (min 6 chars)" className="input-field w-full h-12 text-sm" />
                 </div>
                 {authError && <p className="text-red-400 text-xs text-center mb-3">{authError}</p>}
-                <motion.button whileTap={{ scale: 0.97 }} onClick={() => {
+                <motion.button whileTap={{ scale: 0.97 }} onClick={async () => {
                   setAuthError('')
                   if (!inviteCode.trim()) { setAuthError('Enter your invite code to continue.'); return }
-                  const valid = inviteCodes.validate(inviteCode)
-                  if (!valid) { setAuthError('Invalid or already-used invite code.'); return }
                   if (!name.trim() || !email.trim() || password.length < 6) return
+                  setValidating(true)
+                  const valid = await inviteCodes.validate(inviteCode)
+                  setValidating(false)
+                  if (!valid) { setAuthError('Invalid or already-used invite code.'); return }
                   goNext()
                 }}
-                  disabled={!inviteCode.trim() || !name.trim() || !email.trim() || password.length < 6}
+                  disabled={validating || !inviteCode.trim() || !name.trim() || !email.trim() || password.length < 6}
                   className="btn-primary w-full py-4 text-base mb-4 disabled:opacity-30">
-                  Continue →
+                  {validating ? 'Checking...' : 'Continue →'}
                 </motion.button>
                 <button onClick={() => { setMode('login'); setAuthError('') }}
                   className="w-full text-center text-sm text-gray-500 hover:text-brand-400 transition-colors">

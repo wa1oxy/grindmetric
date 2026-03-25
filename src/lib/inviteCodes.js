@@ -50,7 +50,12 @@ export const inviteCodes = {
     }
   },
 
-  validate: (code) => {
+  validate: async (code) => {
+    // Always pull from Supabase first so fresh devices have the latest codes
+    if (isSupabaseConfigured()) {
+      const remote = await db.getInviteCodes()
+      if (remote) writeCodes(remote)
+    }
     const codes = readCodes()
     return codes.find(c => c.code.toUpperCase() === code.toUpperCase().trim() && !c.used) || null
   },
