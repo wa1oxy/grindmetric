@@ -5,7 +5,9 @@ import { localStore } from '../lib/localStore'
 
 const GOAL_LABELS = { lose_fat: 'Lose Fat 🔥', build_muscle: 'Build Muscle 💪', get_stronger: 'Get Stronger ⚡', endurance: 'Endurance 🏃', maintain: 'Maintain ⚖️' }
 
-export default function Settings({ onLogout }) {
+const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || ''
+
+export default function Settings({ onLogout, onOpenAdmin }) {
   const { theme, setTheme, workouts, foods, weightLogs, user } = useApp()
   const [toast, setToast] = useState(null)
 
@@ -76,6 +78,14 @@ export default function Settings({ onLogout }) {
               <summary className="text-xs font-bold text-brand-400 cursor-pointer">View My Workout Plan ↓</summary>
               <p className="text-xs text-gray-400 mt-2 leading-relaxed whitespace-pre-wrap">{user.profile.workoutPlan}</p>
             </details>
+          )}
+          {/* Admin button — only for admin account */}
+          {(!ADMIN_EMAIL || user?.email === ADMIN_EMAIL) && (
+            <motion.button whileTap={{ scale: 0.97 }} onClick={onOpenAdmin}
+              className="w-full py-3 rounded-xl text-sm font-bold transition-all mb-2"
+              style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)', color: '#c4b5fd' }}>
+              🔐 Open Admin Panel
+            </motion.button>
           )}
           <motion.button whileTap={{ scale: 0.97 }} onClick={onLogout}
             className="w-full py-3 rounded-xl text-sm font-bold transition-all"

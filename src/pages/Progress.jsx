@@ -1,15 +1,17 @@
 import { useState, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useApp } from '../contexts/AppContext'
-import { analyzeProgressPhoto } from '../lib/gemini'
+import { analyzeProgressPhoto, compareProgressPhotos } from '../lib/gemini'
 import { format } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
 export default function Progress() {
-  const { photos, addPhoto, updatePhoto, deletePhoto, weightLogs, addWeightLog } = useApp()
+  const { photos, addPhoto, updatePhoto, deletePhoto, weightLogs, addWeightLog, user } = useApp()
   const [comparing, setComparing] = useState([])
   const [viewing, setViewing] = useState(null)
   const [aiLoading, setAiLoading] = useState(null)
+  const [compareLoading, setCompareLoading] = useState(false)
+  const [compareFeedback, setCompareFeedback] = useState(null)
   const [weight, setWeight] = useState('')
   const [toast, setToast] = useState(null)
   const fileRef = useRef()
@@ -35,7 +37,24 @@ export default function Progress() {
   }
 
   const toggleCompare = (id) => {
+    setCompareFeedback(null)
     setComparing(prev => prev.includes(id) ? prev.filter(x => x !== id) : prev.length < 2 ? [...prev, id] : [prev[1], id])
+  }
+
+  const handleCompareWithAI = async () => {
+    if (comparePhotos.length !== 2) return
+    setCompareLoading(true)
+    setCompareFeedback(null)
+    const [before, after] = comparePhotos
+    const feedback = await compareProgressPhotos({
+      beforeBase64: before.photo_url?.split(',')[1] || before.photo_url,
+      afterBase64: after.photo_url?.split(',')[1] || after.photo_url,
+      beforeDate: format(new Date(before.uploaded_at), 'MMM d, yyyy'),
+      afterDate: format(new Date(after.uploaded_at), 'MMM d, yyyy'),
+      userProfile: user?.profile,
+    })
+    setCompareFeedback(feedback)
+    setCompareLoading(false)
   }
 
   const logWeight = () => {
@@ -117,9 +136,29 @@ export default function Progress() {
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, height: 0 }} className="card p-3 mb-4 overflow-hidden">
             <div className="flex items-center justify-between mb-3">
               <p className="section-label mb-0">Before / After</p>
-              <button onClick={() => setComparing([])} className="text-xs text-gray-600 hover:text-red-400 transition-colors">Clear ×</button>
+              <button onClick={() => { setComparing([]); setCompareFeedback(null) }} className="text-xs text-gray-600 hover:text-red-400 transition-colors">Clear ×</button>
             </div>
             <CompareSlider before={comparePhotos[0]} after={comparePhotos[1]} />
+            {/* AI Comparison */}
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={handleCompareWithAI}
+              disabled={compareLoading}
+              className="w-full mt-3 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all"
+              style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(59,130,246,0.15))', border: '1px solid rgba(139,92,246,0.3)', color: '#c4b5fd' }}>
+              {compareLoading ? (
+                <><motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>⚡</motion.span> Analyzing transformation...</>
+              ) : '🤖 AI Progress Analysis'}
+            </motion.button>
+            <AnimatePresence>
+              {compareFeedback && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                  className="mt-3 p-3 rounded-xl text-xs text-gray-300 leading-relaxed"
+                  style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                  {compareFeedback}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
       </AnimatePresence>

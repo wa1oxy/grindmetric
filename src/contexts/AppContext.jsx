@@ -1,11 +1,11 @@
-import { createContext, useContext, useState, useCallback } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import { localStore, setStorePrefix } from '../lib/localStore'
 import { setGeminiUserId } from '../lib/gemini'
+import { db, isSupabaseConfigured } from '../lib/supabase'
 
 const AppContext = createContext(null)
 
 export function AppProvider({ user, children }) {
-  // Set per-user storage + AI cache prefix immediately
   setStorePrefix(user?.id)
   setGeminiUserId(user?.id)
 
@@ -15,35 +15,78 @@ export function AppProvider({ user, children }) {
   const [weightLogs, setWeightLogs] = useState(() => localStore.getWeightLogs())
   const [photos, setPhotos] = useState(() => localStore.getPhotos())
 
+  // On mount: sync user profile + pull latest data from Supabase
+  useEffect(() => {
+    if (!isSupabaseConfigured() || !user?.id) return
+
+    // Push user profile
+    db.upsertUser(user).catch(console.error)
+
+    // Pull latest records and update local cache + state
+    Promise.all([
+      db.getWorkouts(user.id),
+      db.getFoods(user.id),
+      db.getWeightLogs(user.id),
+    ]).then(([sbWorkouts, sbFoods, sbWeightLogs]) => {
+      if (sbWorkouts?.length) {
+        localStore.setWorkouts(sbWorkouts)
+        setWorkouts(sbWorkouts)
+      }
+      if (sbFoods?.length) {
+        localStore.setFoods(sbFoods)
+        setFoods(sbFoods)
+      }
+      if (sbWeightLogs?.length) {
+        localStore.setWeightLogs(sbWeightLogs)
+        setWeightLogs(sbWeightLogs)
+      }
+    }).catch(console.error)
+  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const setTheme = (t) => { setThemeState(t); localStore.setTheme(t) }
 
   const addWorkout = useCallback((workout) => {
     const entry = localStore.addWorkout(workout)
     setWorkouts(localStore.getWorkouts())
+    if (isSupabaseConfigured()) {
+      db.addWorkout({ ...entry, user_id: user.id }).catch(console.error)
+    }
     return entry
-  }, [])
+  }, [user.id])
 
   const deleteWorkout = useCallback((id) => {
     localStore.deleteWorkout(id)
     setWorkouts(localStore.getWorkouts())
-  }, [])
+    if (isSupabaseConfigured()) {
+      db.deleteWorkout(id).catch(console.error)
+    }
+  }, [user.id])
 
   const addFood = useCallback((food) => {
     const entry = localStore.addFood(food)
     setFoods(localStore.getFoods())
+    if (isSupabaseConfigured()) {
+      db.addFood({ ...entry, user_id: user.id }).catch(console.error)
+    }
     return entry
-  }, [])
+  }, [user.id])
 
   const deleteFood = useCallback((id) => {
     localStore.deleteFood(id)
     setFoods(localStore.getFoods())
-  }, [])
+    if (isSupabaseConfigured()) {
+      db.deleteFood(id).catch(console.error)
+    }
+  }, [user.id])
 
   const addWeightLog = useCallback((log) => {
     const entry = localStore.addWeightLog(log)
     setWeightLogs(localStore.getWeightLogs())
+    if (isSupabaseConfigured()) {
+      db.addWeightLog({ ...entry, user_id: user.id }).catch(console.error)
+    }
     return entry
-  }, [])
+  }, [user.id])
 
   const addPhoto = useCallback((photo) => {
     const entry = localStore.addPhoto(photo)

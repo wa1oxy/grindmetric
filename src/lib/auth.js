@@ -1,3 +1,5 @@
+import { db, isSupabaseConfigured } from './supabase'
+
 const USERS_KEY = 'gm_users'
 const SESSION_KEY = 'gm_session'
 
@@ -26,6 +28,10 @@ export function signup({ name, email, password, profile }) {
   localStorage.setItem(USERS_KEY, JSON.stringify(users))
   const session = { id: user.id, name: user.name, email: user.email, profile: user.profile }
   localStorage.setItem(SESSION_KEY, JSON.stringify(session))
+  // Sync new user profile to Supabase
+  if (isSupabaseConfigured()) {
+    db.upsertUser(session).catch(console.error)
+  }
   return { user: session }
 }
 
@@ -56,6 +62,9 @@ export function updateUserProfile(userId, profileUpdates) {
   if (session && session.id === userId) {
     const newSession = { ...session, profile: users[idx].profile }
     localStorage.setItem(SESSION_KEY, JSON.stringify(newSession))
+    if (isSupabaseConfigured()) {
+      db.upsertUser(newSession).catch(console.error)
+    }
     return newSession
   }
   return null

@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { signup, login, hasAnyUsers } from '../lib/auth'
 import { generateWorkoutPlan } from '../lib/gemini'
+import { inviteCodes } from '../lib/inviteCodes'
 
 const GOALS = [
   { id: 'lose_fat',   label: 'Lose Fat',          emoji: '🔥', desc: 'Burn fat & get lean' },
@@ -36,6 +37,7 @@ export default function Onboarding({ onComplete }) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [inviteCode, setInviteCode] = useState('')
   const [loginEmail, setLoginEmail] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
   const [authError, setAuthError] = useState('')
@@ -50,6 +52,7 @@ export default function Onboarding({ onComplete }) {
   const [weight, setWeight] = useState('')
   const [height, setHeight] = useState('')
   const [sex, setSex] = useState('')
+  const [additionalNotes, setAdditionalNotes] = useState('')
   const [currentPhoto, setCurrentPhoto] = useState(null)
   const [dreamPhoto, setDreamPhoto] = useState(null)
 
@@ -60,7 +63,7 @@ export default function Onboarding({ onComplete }) {
   const currentRef = useRef()
   const dreamRef = useRef()
 
-  const TOTAL_STEPS = 7
+  const TOTAL_STEPS = 8
 
   const goNext = () => {
     setDirection(1)
@@ -83,12 +86,13 @@ export default function Onboarding({ onComplete }) {
   const handleGeneratePlan = async () => {
     setGenerating(true)
     setDirection(1)
-    setStep(7)
+    setStep(8)
     const selectedGoal = GOALS.find(g => g.id === goal)
     const intensityLabel = INTENSITY_LEVELS.find(i => i.value === intensity)?.label
     const planText = await generateWorkoutPlan({
       name, goal: selectedGoal?.label, daysPerWeek, sessionDuration,
       preferredTime, intensity: intensityLabel, age, weight, height, sex,
+      additionalNotes,
       hasCurrentPhoto: !!currentPhoto, hasDreamPhoto: !!dreamPhoto,
       currentPhotoBase64: currentPhoto ? currentPhoto.split(',')[1] : null,
       dreamPhotoBase64: dreamPhoto ? dreamPhoto.split(',')[1] : null,
@@ -101,11 +105,13 @@ export default function Onboarding({ onComplete }) {
     const profile = {
       goal, daysPerWeek, sessionDuration, preferredTime,
       intensity, age, weight, height, sex,
+      additionalNotes,
       currentPhoto, dreamPhoto, workoutPlan: plan,
       onboardedAt: new Date().toISOString(),
     }
     const result = signup({ name, email, password, profile })
     if (result.error) { setAuthError(result.error); return }
+    inviteCodes.markUsed(inviteCode, email).catch(console.error)
     onComplete(result.user)
   }
 
@@ -149,12 +155,12 @@ export default function Onboarding({ onComplete }) {
   }
 
   // ── SIGNUP FLOW ──
-  const progressPct = step === 7 ? 100 : Math.round((step / TOTAL_STEPS) * 100)
+  const progressPct = step === 8 ? 100 : Math.round((step / TOTAL_STEPS) * 100)
 
   return (
     <div className="min-h-screen bg-[#030712] flex flex-col">
       {/* Progress bar */}
-      {step > 0 && step < 7 && (
+      {step > 0 && step < 8 && (
         <div className="h-0.5 w-full bg-white/5">
           <motion.div className="h-full bg-brand-500" animate={{ width: `${progressPct}%` }} transition={{ duration: 0.4 }} />
         </div>
@@ -174,9 +180,15 @@ export default function Onboarding({ onComplete }) {
                 <div className="text-center mb-8">
                   <div className="text-5xl mb-3">💪</div>
                   <h1 className="text-3xl font-black text-white tracking-tight">GrindMetric</h1>
-                  <p className="text-gray-500 text-sm mt-2">Create your account to get started</p>
+                  <p className="text-gray-500 text-sm mt-2">Invite only — enter your code to join</p>
                 </div>
                 <div className="space-y-3 mb-6">
+                  <div className="relative">
+                    <input value={inviteCode} onChange={e => setInviteCode(e.target.value.toUpperCase())}
+                      placeholder="Invite code (e.g. WXYZ-AB12)"
+                      className="input-field w-full h-12 text-sm font-mono tracking-widest uppercase"
+                      style={{ letterSpacing: '0.12em' }} />
+                  </div>
                   <input value={name} onChange={e => setName(e.target.value)}
                     placeholder="Your name" className="input-field w-full h-12 text-sm" />
                   <input value={email} onChange={e => setEmail(e.target.value)}
@@ -186,19 +198,21 @@ export default function Onboarding({ onComplete }) {
                 </div>
                 {authError && <p className="text-red-400 text-xs text-center mb-3">{authError}</p>}
                 <motion.button whileTap={{ scale: 0.97 }} onClick={() => {
+                  setAuthError('')
+                  if (!inviteCode.trim()) { setAuthError('Enter your invite code to continue.'); return }
+                  const valid = inviteCodes.validate(inviteCode)
+                  if (!valid) { setAuthError('Invalid or already-used invite code.'); return }
                   if (!name.trim() || !email.trim() || password.length < 6) return
                   goNext()
                 }}
-                  disabled={!name.trim() || !email.trim() || password.length < 6}
+                  disabled={!inviteCode.trim() || !name.trim() || !email.trim() || password.length < 6}
                   className="btn-primary w-full py-4 text-base mb-4 disabled:opacity-30">
                   Continue →
                 </motion.button>
-                {hasAnyUsers() && (
-                  <button onClick={() => setMode('login')}
-                    className="w-full text-center text-sm text-gray-500 hover:text-brand-400 transition-colors">
-                    Already have an account? <span className="text-brand-400 font-bold">Sign in</span>
-                  </button>
-                )}
+                <button onClick={() => { setMode('login'); setAuthError('') }}
+                  className="w-full text-center text-sm text-gray-500 hover:text-brand-400 transition-colors">
+                  Already have an account? <span className="text-brand-400 font-bold">Sign in</span>
+                </button>
               </div>
             )}
 
@@ -378,10 +392,43 @@ export default function Onboarding({ onComplete }) {
               </div>
             )}
 
-            {/* STEP 5: Current Physique */}
+            {/* STEP 5: Additional Notes */}
             {step === 5 && (
               <div className="flex-1 flex flex-col max-w-sm mx-auto w-full">
                 <StepHeader step={5} total={TOTAL_STEPS} onBack={goBack}
+                  title="Anything else?" subtitle="Tell us about limitations, your setup, or anything we should know" />
+                <div className="flex-1 flex flex-col gap-4">
+                  <textarea
+                    value={additionalNotes}
+                    onChange={e => setAdditionalNotes(e.target.value)}
+                    placeholder={"Examples:\n• I can also work out at home 3 days a week without equipment\n• I have a shoulder injury\n• I only have 45 minutes on weekdays"}
+                    rows={6}
+                    className="input-field w-full p-4 resize-none leading-relaxed"
+                    style={{ minHeight: '160px' }}
+                  />
+                  <p className="text-[11px] text-gray-600 text-center">
+                    Gemini AI will incorporate this context into your plan — the more detail, the better.
+                  </p>
+                </div>
+                <div className="space-y-2 mt-4">
+                  <motion.button whileTap={{ scale: 0.97 }} onClick={goNext}
+                    disabled={!additionalNotes.trim()}
+                    className="btn-primary w-full py-4 text-base disabled:opacity-30">
+                    Continue →
+                  </motion.button>
+                  <motion.button whileTap={{ scale: 0.97 }} onClick={goNext}
+                    className="w-full py-3.5 rounded-xl text-sm font-bold transition-all"
+                    style={{ background: 'rgba(255,255,255,0.05)', color: '#9ca3af', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    Skip for now
+                  </motion.button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 6: Current Physique */}
+            {step === 6 && (
+              <div className="flex-1 flex flex-col max-w-sm mx-auto w-full">
+                <StepHeader step={6} total={TOTAL_STEPS} onBack={goBack}
                   title="Current physique" subtitle="Optional — AI will analyze and tailor your plan" />
                 <div className="flex-1 flex flex-col">
                   <input ref={currentRef} type="file" accept="image/*" capture="environment" className="hidden"
@@ -424,10 +471,10 @@ export default function Onboarding({ onComplete }) {
               </div>
             )}
 
-            {/* STEP 6: Dream Physique */}
-            {step === 6 && (
+            {/* STEP 7: Dream Physique */}
+            {step === 7 && (
               <div className="flex-1 flex flex-col max-w-sm mx-auto w-full">
-                <StepHeader step={6} total={TOTAL_STEPS} onBack={goBack}
+                <StepHeader step={7} total={TOTAL_STEPS} onBack={goBack}
                   title="Dream physique" subtitle="Show us where you want to be — AI estimates your timeline" />
                 <div className="flex-1 flex flex-col">
                   <input ref={dreamRef} type="file" accept="image/*" capture="environment" className="hidden"
@@ -470,8 +517,8 @@ export default function Onboarding({ onComplete }) {
               </div>
             )}
 
-            {/* STEP 7: Generated Plan */}
-            {step === 7 && (
+            {/* STEP 8: Generated Plan */}
+            {step === 8 && (
               <div className="flex-1 flex flex-col max-w-sm mx-auto w-full">
                 {generating ? (
                   <div className="flex-1 flex flex-col items-center justify-center text-center gap-6">

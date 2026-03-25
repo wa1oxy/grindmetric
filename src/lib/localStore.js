@@ -35,6 +35,11 @@ export const localStore = {
   },
   deleteFood: (id) => write(k('foods'), read(k('foods')).filter(f => f.id !== id)),
 
+  // Direct setters (used to cache Supabase data locally)
+  setWorkouts: (data) => write(k('workouts'), data),
+  setFoods: (data) => write(k('foods'), data),
+  setWeightLogs: (data) => write(k('weight_logs'), data),
+
   // Weight logs
   getWeightLogs: () => read(k('weight_logs')),
   addWeightLog: (log) => {

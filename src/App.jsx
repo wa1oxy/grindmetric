@@ -10,6 +10,7 @@ import Analytics from './pages/Analytics'
 import Progress from './pages/Progress'
 import Settings from './pages/Settings'
 import Onboarding from './pages/Onboarding'
+import Admin from './pages/Admin'
 
 const TABS = ['dashboard', 'workout', 'nutrition', 'analytics', 'progress', 'settings']
 const pages = { dashboard: Dashboard, workout: Workout, nutrition: Nutrition, analytics: Analytics, progress: Progress, settings: Settings }
@@ -22,6 +23,7 @@ const pageVariants = {
 
 function AppInner({ user, onLogout }) {
   const [tab, setTab] = useState('dashboard')
+  const [showAdmin, setShowAdmin] = useState(false)
   const prevTabRef = useRef('dashboard')
   const Page = pages[tab]
   const direction = TABS.indexOf(tab) > TABS.indexOf(prevTabRef.current) ? 1 : -1
@@ -43,10 +45,25 @@ function AppInner({ user, onLogout }) {
           exit="exit"
           transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
         >
-          <Page onNavigate={handleTabChange} onLogout={onLogout} />
+          <Page onNavigate={handleTabChange} onLogout={onLogout} onOpenAdmin={() => setShowAdmin(true)} />
         </motion.div>
       </AnimatePresence>
       <BottomNav active={tab} onChange={handleTabChange} />
+
+      {/* Admin overlay */}
+      <AnimatePresence>
+        {showAdmin && (
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 30 }}
+            transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+            className="fixed inset-0 z-[100] bg-[#030712] overflow-y-auto"
+          >
+            <Admin onBack={() => setShowAdmin(false)} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

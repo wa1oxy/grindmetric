@@ -29,6 +29,7 @@ function profileContext(profile) {
   if (profile.weight) lines.push(`Weight: ${profile.weight}kg`)
   if (profile.height) lines.push(`Height: ${profile.height}cm`)
   if (profile.sex) lines.push(`Sex: ${profile.sex}`)
+  if (profile.additionalNotes) lines.push(`User notes: ${profile.additionalNotes}`)
   return lines.length ? `\nUser profile:\n${lines.join('\n')}` : ''
 }
 
@@ -56,7 +57,7 @@ Give exactly 2-3 sentences of personalized, honest feedback tailored to their go
   return result
 }
 
-export async function generateWorkoutPlan({ name, goal, daysPerWeek, sessionDuration, preferredTime, intensity, age, weight, height, sex, hasCurrentPhoto, hasDreamPhoto, currentPhotoBase64, dreamPhotoBase64 }) {
+export async function generateWorkoutPlan({ name, goal, daysPerWeek, sessionDuration, preferredTime, intensity, age, weight, height, sex, additionalNotes, hasCurrentPhoto, hasDreamPhoto, currentPhotoBase64, dreamPhotoBase64 }) {
   const stats = [age && `Age: ${age}`, weight && `Weight: ${weight}kg`, height && `Height: ${height}cm`, sex && `Sex: ${sex}`].filter(Boolean).join(', ')
 
   const prompt = `You are an elite personal trainer creating a personalized fitness plan. Here are the client's details:
@@ -67,6 +68,7 @@ Session duration: ${sessionDuration} minutes
 Preferred time: ${preferredTime}
 Intensity level: ${intensity}/5
 ${stats ? `Stats: ${stats}` : ''}
+${additionalNotes ? `Additional context from client: ${additionalNotes}` : ''}
 ${hasCurrentPhoto ? 'Current physique photo provided (assess their starting point)' : ''}
 ${hasDreamPhoto ? 'Dream physique photo provided (this is their target look)' : ''}
 
@@ -122,6 +124,28 @@ Give a 3-sentence weekly summary personalized to their goal: what went well, wha
 export async function analyzeProgressPhoto(base64Image) {
   const prompt = `You are an elite fitness coach reviewing a progress photo. Give 2-3 sentences of honest, specific feedback on body composition, visible muscle development, and one area to focus on. No flattery.`
   return callGemini(prompt, base64Image)
+}
+
+export async function compareProgressPhotos({ beforeBase64, afterBase64, beforeDate, afterDate, userProfile }) {
+  const prompt = `You are an elite fitness coach comparing two progress photos to assess physical transformation.
+
+Before photo date: ${beforeDate}
+After photo date: ${afterDate}
+${profileContext(userProfile)}
+
+Look at both photos carefully and give:
+1. **Visible Changes** — what's specifically different (body composition, muscle definition, posture, proportions)
+2. **Honest Progress Rating** — are they actually moving toward their goal? Be direct.
+3. **Top Priority** — the single most important thing to focus on next based on what you see
+
+Be brutally honest. No empty praise. If progress is minimal or inconsistent, say so plainly. Keep it to 4-5 sentences total.`
+
+  const parts = [
+    { text: prompt },
+    { inline_data: { mime_type: 'image/jpeg', data: beforeBase64 } },
+    { inline_data: { mime_type: 'image/jpeg', data: afterBase64 } },
+  ]
+  return callGemini(prompt, null, parts)
 }
 
 export async function parseFoodFromText(text, userProfile) {
