@@ -1,0 +1,86 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+    box-sizing: border-box;
+  }
+
+  html {
+    background: #030712;
+  }
+
+  body {
+    margin: 0;
+    font-family: 'Inter', system-ui, sans-serif;
+    overscroll-behavior: none;
+    -webkit-font-smoothing: antialiased;
+    background: #030712;
+    color: #f9fafb;
+  }
+
+  #root {
+    width: 100%;
+    max-width: 430px;
+    margin: 0 auto;
+    min-height: 100svh;
+    position: relative;
+    background: #030712;
+  }
+
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+  .glow-green {
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.25);
+  }
+  .glow-green-sm {
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.2);
+  }
+
+  .card {
+    @apply bg-[#0f1117] border border-white/[0.06] rounded-2xl;
+  }
+  .card-elevated {
+    @apply bg-[#141720] border border-white/[0.08] rounded-2xl;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-brand-400 to-emerald-300 bg-clip-text text-transparent;
+  }
+
+  .btn-primary {
+    @apply bg-brand-500 text-white font-bold rounded-2xl active:scale-[0.97] transition-all duration-150;
+    box-shadow: 0 4px 20px rgba(34, 197, 94, 0.3);
+  }
+  .btn-primary:active {
+    box-shadow: 0 2px 10px rgba(34, 197, 94, 0.2);
+  }
+
+  .btn-ghost {
+    @apply bg-white/[0.06] border border-white/[0.08] text-gray-300 font-semibold rounded-xl active:scale-[0.97] transition-all duration-150;
+  }
+
+  .input-field {
+    @apply bg-white/[0.05] border border-white/[0.08] rounded-xl px-4 text-white placeholder:text-gray-600 outline-none focus:border-brand-500/50 transition-colors duration-200;
+  }
+
+  .tab-page {
+    @apply px-4 pt-5 pb-28;
+  }
+
+  .section-label {
+    @apply text-[10px] font-bold text-gray-500 uppercase tracking-[0.12em] mb-2;
+  }
+}
