@@ -86,7 +86,15 @@ Be direct, specific, and brutally honest. No motivational fluff. Format clearly 
   if (dreamPhotoBase64) parts.push({ inline_data: { mime_type: 'image/jpeg', data: dreamPhotoBase64 } })
 
   const result = await callGemini(prompt, null, parts)
-  return result || 'Could not generate plan. Check your internet connection and try again.'
+  if (result) return result
+
+  // Retry without photos if multimodal call failed
+  if (currentPhotoBase64 || dreamPhotoBase64) {
+    const fallback = await callGemini(prompt)
+    if (fallback) return fallback
+  }
+
+  return 'Could not generate plan. Check your internet connection and try again.'
 }
 
 export async function getWeeklySummary({ workouts, nutrition, weightLogs, streak, userProfile }) {
