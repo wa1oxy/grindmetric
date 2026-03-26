@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useApp } from '../contexts/AppContext'
-import { analyzeWorkoutPlan } from '../lib/gemini'
+import { analyzeWorkoutPlan, customizeWorkoutPlan } from '../lib/gemini'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { format } from 'date-fns'
 
@@ -181,6 +181,137 @@ function LogModal({ exercise, defaultSets, defaultReps, onLog, onClose }) {
   )
 }
 
+// ─── Schedule Picker ─────────────────────────────────────────────────────────
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+const DAY_STATES = ['gym','home','rest']
+const DAY_LABELS = { gym: '🏋️', home: '🏠', rest: '😴' }
+const DAY_COLORS = { gym: '#22c55e', home: '#3b82f6', rest: '#374151' }
+
+function SchedulePicker({ schedule, onChange, onClose }) {
+  const [local, setLocal] = useState(() => schedule || { Mon:'gym',Tue:'rest',Wed:'gym',Thu:'rest',Fri:'gym',Sat:'home',Sun:'rest' })
+
+  const cycle = (day) => {
+    const cur = DAY_STATES.indexOf(local[day])
+    setLocal(s => ({ ...s, [day]: DAY_STATES[(cur + 1) % 3] }))
+  }
+
+  return (
+    <>
+      <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+        className="fixed inset-0 z-40 backdrop-blur-md" style={{ background:'rgba(0,0,0,0.75)' }} onClick={() => { onChange(local); onClose() }} />
+      <motion.div initial={{ y:'100%' }} animate={{ y:0 }} exit={{ y:'100%' }}
+        transition={{ type:'spring', damping:30, stiffness:320 }}
+        className="fixed bottom-0 left-0 right-0 z-50 rounded-t-[28px] px-5 pt-5 pb-10"
+        style={{ background:'#0d1117', border:'1px solid rgba(255,255,255,0.08)' }}>
+        <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mb-5" />
+        <p className="text-lg font-black text-white mb-1">Weekly Schedule</p>
+        <p className="text-xs text-gray-600 mb-5">Tap each day to cycle between gym, home, and rest.</p>
+        <div className="grid grid-cols-7 gap-1.5 mb-6">
+          {DAYS.map(day => {
+            const state = local[day] || 'rest'
+            const color = DAY_COLORS[state]
+            return (
+              <motion.button key={day} whileTap={{ scale:0.88 }} onClick={() => cycle(day)}
+                className="flex flex-col items-center gap-1.5 py-3 rounded-2xl"
+                style={{ background: state === 'rest' ? 'rgba(255,255,255,0.04)' : color + '18', border: `1px solid ${color}40` }}>
+                <span className="text-base">{DAY_LABELS[state]}</span>
+                <span className="text-[10px] font-bold" style={{ color: state === 'rest' ? '#4b5563' : color }}>{day}</span>
+              </motion.button>
+            )
+          })}
+        </div>
+        <div className="flex gap-3 text-xs text-gray-600 justify-center mb-6">
+          {Object.entries(DAY_LABELS).map(([k,v]) => (
+            <span key={k} className="flex items-center gap-1">{v} <span style={{ color: DAY_COLORS[k] }}>{k.charAt(0).toUpperCase()+k.slice(1)}</span></span>
+          ))}
+        </div>
+        <motion.button whileTap={{ scale:0.97 }} onClick={() => { onChange(local); onClose() }}
+          className="w-full py-4 rounded-2xl text-base font-black text-black"
+          style={{ background:'linear-gradient(135deg,#22c55e,#4ade80)', boxShadow:'0 4px 24px rgba(34,197,94,0.3)' }}>
+          Save Schedule
+        </motion.button>
+      </motion.div>
+    </>
+  )
+}
+
+// ─── Plan Chat Sheet ──────────────────────────────────────────────────────────
+function PlanChat({ plan, user, onPlanUpdate, onClose }) {
+  const [messages, setMessages] = useState([
+    { role: 'ai', text: "What would you like to change about your plan? You can ask me to swap exercises, adjust days, change volume, or anything else." }
+  ])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const send = async () => {
+    if (!input.trim() || loading) return
+    const req = input.trim()
+    setInput('')
+    setMessages(m => [...m, { role: 'user', text: req }])
+    setLoading(true)
+    const result = await customizeWorkoutPlan({ currentPlan: plan, request: req, userProfile: user?.profile })
+    if (result) {
+      setMessages(m => [...m, { role: 'ai', text: result.reply, newPlan: result.newPlan }])
+      onPlanUpdate(result.newPlan)
+    } else {
+      setMessages(m => [...m, { role: 'ai', text: "Sorry, couldn't process that. Try again." }])
+    }
+    setLoading(false)
+  }
+
+  return (
+    <>
+      <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+        className="fixed inset-0 z-40 backdrop-blur-md" style={{ background:'rgba(0,0,0,0.75)' }} onClick={onClose} />
+      <motion.div initial={{ y:'100%' }} animate={{ y:0 }} exit={{ y:'100%' }}
+        transition={{ type:'spring', damping:30, stiffness:320 }}
+        className="fixed bottom-0 left-0 right-0 z-50 rounded-t-[28px] flex flex-col"
+        style={{ background:'#0d1117', border:'1px solid rgba(34,197,94,0.2)', maxHeight:'80vh' }}>
+        <div className="px-5 pt-5 pb-3 shrink-0">
+          <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mb-4" />
+          <p className="text-lg font-black text-white mb-0.5">Tweak Your Plan</p>
+          <p className="text-xs text-gray-600">Chat with AI to change anything about your workout plan.</p>
+        </div>
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3 min-h-0">
+          {messages.map((m, i) => (
+            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className="max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed"
+                style={m.role === 'user'
+                  ? { background:'rgba(34,197,94,0.15)', border:'1px solid rgba(34,197,94,0.25)', color:'#d1fae5' }
+                  : { background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)', color:'#d1d5db' }}>
+                {m.role === 'ai' && <span className="text-green-400 font-bold text-xs block mb-1">🤖 AI Coach</span>}
+                {m.text}
+                {m.newPlan && <p className="text-[10px] text-green-400 mt-2 font-bold">✓ Plan updated</p>}
+              </div>
+            </div>
+          ))}
+          {loading && (
+            <div className="flex justify-start">
+              <div className="rounded-2xl px-4 py-3 flex gap-1.5 items-center" style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)' }}>
+                {[0,1,2].map(i => <motion.div key={i} className="w-1.5 h-1.5 bg-green-400 rounded-full" animate={{ y:[0,-4,0] }} transition={{ repeat:Infinity, duration:0.7, delay:i*0.12 }} />)}
+              </div>
+            </div>
+          )}
+        </div>
+        {/* Input */}
+        <div className="px-4 py-4 pb-10 shrink-0 flex gap-2" style={{ borderTop:'1px solid rgba(255,255,255,0.06)' }}>
+          <input value={input} onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && send()}
+            placeholder='e.g. "Skip legs" or "More chest work"'
+            className="flex-1 px-4 py-3 rounded-2xl text-sm text-white outline-none"
+            style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)' }} />
+          <motion.button whileTap={{ scale:0.92 }} onClick={send} disabled={!input.trim() || loading}
+            className="w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-black disabled:opacity-30"
+            style={{ background:'linear-gradient(135deg,#22c55e,#4ade80)' }}>
+            →
+          </motion.button>
+        </div>
+      </motion.div>
+    </>
+  )
+}
+
 // ─── Analysis Sheet ───────────────────────────────────────────────────────────
 function AnalysisSheet({ workouts, workoutPlan, user, onClose }) {
   const [text, setText] = useState('')
@@ -253,15 +384,21 @@ function ExerciseRow({ exercise, sub, onLog, showPR, pr, delay = 0 }) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function Workout() {
-  const { workouts, addWorkout, deleteWorkout, user } = useApp()
+  const { workouts, addWorkout, deleteWorkout, user, saveProfile } = useApp()
   const [search, setSearch] = useState('')
   const [logTarget, setLogTarget] = useState(null)
   const [showAnalysis, setShowAnalysis] = useState(false)
+  const [showSchedule, setShowSchedule] = useState(false)
+  const [showPlanChat, setShowPlanChat] = useState(false)
   const [toast, setToast] = useState(null)
   const [chartExercise, setChartExercise] = useState('')
+  const [currentPlan, setCurrentPlan] = useState(() => user?.profile?.workoutPlan || '')
 
-  const workoutPlan = user?.profile?.workoutPlan
+  const workoutPlan = currentPlan
   const planLifts = parsePlanLifts(workoutPlan)
+  const gymSchedule = user?.profile?.gymSchedule || {}
+  const todayDay = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date().getDay()]
+  const todayType = gymSchedule[todayDay] || 'gym'
 
   const todayStr = new Date().toISOString().split('T')[0]
   const loggedToday = workouts.filter(w => w.created_at.startsWith(todayStr))
@@ -318,15 +455,31 @@ export default function Workout() {
       <div className="flex items-center justify-between mb-5">
         <div>
           <h2 className="text-[28px] font-black text-white tracking-tight leading-none">Lift</h2>
-          <p className="text-xs text-gray-600 mt-0.5">{format(new Date(), 'EEEE, MMM d')}</p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-xs text-gray-600">{format(new Date(), 'EEEE, MMM d')}</p>
+            <button onClick={() => setShowSchedule(true)}
+              className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+              style={{ background: todayType === 'gym' ? 'rgba(34,197,94,0.15)' : todayType === 'home' ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.06)', color: todayType === 'gym' ? '#22c55e' : todayType === 'home' ? '#60a5fa' : '#6b7280' }}>
+              {DAY_LABELS[todayType]} {todayType.charAt(0).toUpperCase()+todayType.slice(1)} Day
+            </button>
+          </div>
         </div>
-        {workoutPlan && (
-          <motion.button whileTap={{ scale: 0.92 }} onClick={() => setShowAnalysis(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold"
-            style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)', color: '#a5b4fc' }}>
-            🧠 <span>Analyze</span>
-          </motion.button>
-        )}
+        <div className="flex gap-2">
+          {workoutPlan && (
+            <>
+              <motion.button whileTap={{ scale:0.92 }} onClick={() => setShowPlanChat(true)}
+                className="flex items-center gap-1.5 px-3 py-2.5 rounded-2xl text-xs font-bold"
+                style={{ background:'rgba(34,197,94,0.1)', border:'1px solid rgba(34,197,94,0.2)', color:'#4ade80' }}>
+                ✏️
+              </motion.button>
+              <motion.button whileTap={{ scale:0.92 }} onClick={() => setShowAnalysis(true)}
+                className="flex items-center gap-1.5 px-3 py-2.5 rounded-2xl text-xs font-bold"
+                style={{ background:'rgba(99,102,241,0.12)', border:'1px solid rgba(99,102,241,0.25)', color:'#a5b4fc' }}>
+                🧠
+              </motion.button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Progress bar — only when there's a plan */}
@@ -482,6 +635,25 @@ export default function Workout() {
       </AnimatePresence>
       <AnimatePresence>
         {showAnalysis && <AnalysisSheet workouts={workouts} workoutPlan={workoutPlan} user={user} onClose={() => setShowAnalysis(false)} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showSchedule && (
+          <SchedulePicker
+            schedule={gymSchedule}
+            onChange={(s) => saveProfile({ gymSchedule: s })}
+            onClose={() => setShowSchedule(false)}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showPlanChat && (
+          <PlanChat
+            plan={currentPlan}
+            user={user}
+            onPlanUpdate={(newPlan) => { setCurrentPlan(newPlan); saveProfile({ workoutPlan: newPlan }) }}
+            onClose={() => setShowPlanChat(false)}
+          />
+        )}
       </AnimatePresence>
     </div>
   )

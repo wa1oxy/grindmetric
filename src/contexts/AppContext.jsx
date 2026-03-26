@@ -2,10 +2,12 @@ import { createContext, useContext, useState, useCallback, useEffect } from 'rea
 import { localStore, setStorePrefix } from '../lib/localStore'
 import { setGeminiUserId } from '../lib/gemini'
 import { db, isSupabaseConfigured } from '../lib/supabase'
+import { updateUserProfile } from '../lib/auth'
 
 const AppContext = createContext(null)
 
-export function AppProvider({ user, children }) {
+export function AppProvider({ user: initialUser, children }) {
+  const [user, setUser] = useState(initialUser)
   setStorePrefix(user?.id)
   setGeminiUserId(user?.id)
 
@@ -113,8 +115,18 @@ export function AppProvider({ user, children }) {
     { calories: 0, protein: 0, carbs: 0, fat: 0 }
   )
 
+  const saveProfile = useCallback((profileUpdates) => {
+    const updated = updateUserProfile(user.id, profileUpdates)
+    if (updated) {
+      setUser(u => ({ ...u, profile: { ...u.profile, ...profileUpdates } }))
+      if (isSupabaseConfigured()) db.upsertUser(updated).catch(console.error)
+    }
+    return updated
+  }, [user.id])
+
   const value = {
     user,
+    saveProfile,
     theme, setTheme,
     workouts, addWorkout, deleteWorkout,
     foods, addFood, deleteFood,
