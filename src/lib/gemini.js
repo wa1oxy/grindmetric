@@ -70,7 +70,7 @@ ${hasCurrentPhoto ? 'Current physique photo provided.' : ''}${hasDreamPhoto ? ' 
 
 RULES BEFORE YOU WRITE:
 - Extract every piece of equipment and constraint from the client notes. Use ALL of it.
-- NEVER assign rest to a day unless the client explicitly said they want rest that day.
+${intensity === 'Elite' || intensity === '5' || intensity === 5 ? '- NEVER assign rest days. Every day gets a workout — use gym or home equipment accordingly.' : '- Assign rest days appropriately for their intensity level, but home days with equipment should still get light/active sessions.'}
 - If they have a decline bench at home: program decline push-up variations, pike push-ups, dips off bench, ab work, etc.
 - If they have bodyweight only: program push-up variations, pull variations, lunges, core, holds — not rest.
 - Gym days = barbell/machine work. Home days = creative bodyweight + whatever they have.
