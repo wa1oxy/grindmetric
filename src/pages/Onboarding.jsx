@@ -611,7 +611,7 @@ export default function Onboarding({ onComplete }) {
                             {header && <p className="text-xs font-bold tracking-widest text-green-400 uppercase mb-1.5">{header}</p>}
                             {body.map((line, j) => (
                               <p key={j} className="text-sm leading-relaxed text-gray-300">
-                                {line.replace(/^[-•*]\s*/, '• ').replace(/^• • /, '• ')}
+                                {line.replace(/\*\*/g, '').replace(/^[-•*\d]+[.)]\s*/, '').trim()}
                               </p>
                             ))}
                           </div>

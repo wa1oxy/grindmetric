@@ -72,22 +72,22 @@ ${additionalNotes ? `Additional context from client: ${additionalNotes}` : ''}
 ${hasCurrentPhoto ? 'Current physique photo provided (assess their starting point)' : ''}
 ${hasDreamPhoto ? 'Dream physique photo provided (this is their target look)' : ''}
 
-No intro. No fluff. No motivational language. Be brutally short. Use this exact format:
+RULES: No markdown. No bold. No asterisks. No intro sentence. No explanations. Hard limit: 120 words total. Just the data.
 
 ## THE GAP
-${hasCurrentPhoto && hasDreamPhoto ? 'From the photos: ' : ''}One sentence. Current build vs goal — what specifically is missing.
+${hasCurrentPhoto && hasDreamPhoto ? 'From the photos: ' : ''}One sentence max. What's missing between now and the goal.
 
 ## WEEKLY SPLIT
-One line per day, no explanation. E.g: "Mon: Push | Tue: Pull | Wed: Legs | Thu: Rest..."
+One line. Format: "Mon: X | Tue: Y | Wed: Z..." — no extra words.
 
 ## KEY LIFTS
-4-5 exercises. One line each: "Exercise — sets x reps"
+4 lifts only. Format per line: "Squat — 4x6"
 
 ## NUTRITION
-One sentence. Calorie target + protein target. That's it.
+One line: "Eat Xkcal, Xg protein daily."
 
 ## TIMELINE
-One sentence. Honest.`
+One line: "X weeks to first results, X months to goal."`
 
   const parts = [{ text: prompt }]
   if (currentPhotoBase64) parts.push({ inline_data: { mime_type: 'image/jpeg', data: currentPhotoBase64 } })
