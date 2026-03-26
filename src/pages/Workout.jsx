@@ -7,18 +7,45 @@ import { format } from 'date-fns'
 
 // ─── Exercise metadata ────────────────────────────────────────────────────────
 const CATEGORIES = {
-  chest:     { label: 'Chest',     color: '#f43f5e', bg: 'rgba(244,63,94,0.12)',    keywords: ['bench','push','fly','chest','dip','pec'] },
-  back:      { label: 'Back',      color: '#3b82f6', bg: 'rgba(59,130,246,0.12)',   keywords: ['row','pull','lat','deadlift','rdl','pulldown','chin','inverted'] },
-  legs:      { label: 'Legs',      color: '#f97316', bg: 'rgba(249,115,22,0.12)',   keywords: ['squat','lunge','leg','hip','glute','calf','step'] },
-  shoulders: { label: 'Shoulders', color: '#a855f7', bg: 'rgba(168,85,247,0.12)',   keywords: ['press','ohp','overhead','lateral','front raise','rear delt','shrug','upright'] },
-  arms:      { label: 'Arms',      color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',   keywords: ['curl','tricep','bicep','hammer','skull','close-grip'] },
-  core:      { label: 'Core',      color: '#06b6d4', bg: 'rgba(6,182,212,0.12)',    keywords: ['plank','crunch','sit-up','ab','russian','mountain','hollow','leg raise'] },
-  cardio:    { label: 'Cardio',    color: '#22c55e', bg: 'rgba(34,197,94,0.12)',    keywords: ['run','sprint','jump','burpee','rope','cardio'] },
+  chest:     { label: 'Chest',     color: '#f43f5e', bg: 'rgba(244,63,94,0.12)',    keywords: ['bench','push-up','push up','fly','chest','dip','pec'] },
+  back:      { label: 'Back',      color: '#3b82f6', bg: 'rgba(59,130,246,0.12)',   keywords: ['row','pull','lat pull','pulldown','deadlift','rdl','chin','inverted'] },
+  legs:      { label: 'Legs',      color: '#f97316', bg: 'rgba(249,115,22,0.12)',   keywords: ['squat','lunge','leg press','leg ext','leg curl','hip thrust','glute','calf','step-up','split squat','bulgarian'] },
+  shoulders: { label: 'Shoulders', color: '#a855f7', bg: 'rgba(168,85,247,0.12)',   keywords: ['shoulder press','ohp','overhead press','arnold','lateral raise','front raise','rear delt','shrug','upright row','face pull'] },
+  arms:      { label: 'Arms',      color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',   keywords: ['curl','tricep','bicep','hammer','skull','close-grip','pushdown','extension'] },
+  core:      { label: 'Core',      color: '#06b6d4', bg: 'rgba(6,182,212,0.12)',    keywords: ['plank','crunch','sit-up','ab wheel','ab roller','russian twist','mountain climber','hollow','leg raise','hanging leg'] },
+  cardio:    { label: 'Cardio',    color: '#22c55e', bg: 'rgba(34,197,94,0.12)',    keywords: ['run','sprint','jump rope','box jump','burpee','jump squat','cardio'] },
+}
+
+// Checked BEFORE keyword scan — handles ambiguous names
+const EXERCISE_OVERRIDES = {
+  'lateral raise':    'shoulders',
+  'rear delt':        'shoulders',
+  'upright row':      'shoulders',
+  'face pull':        'shoulders',
+  'arnold press':     'shoulders',
+  'overhead press':   'shoulders',
+  'shoulder press':   'shoulders',
+  'tricep pushdown':  'arms',
+  'pushdown':         'arms',
+  'tricep extension': 'arms',
+  'skull crusher':    'arms',
+  'close-grip bench': 'arms',
+  'leg raise':        'core',
+  'hanging leg':      'core',
+  'romanian deadlift':'legs',
+  'hip thrust':       'legs',
+  'glute bridge':     'legs',
+  'walking lunge':    'legs',
+  'step-up':          'legs',
+  'jump rope':        'cardio',
+  'box jump':         'cardio',
 }
 
 function getCategory(name) {
   const n = name.toLowerCase()
-  // shoulders before arms (OHP would match "press" in shoulders first)
+  for (const [pattern, catKey] of Object.entries(EXERCISE_OVERRIDES)) {
+    if (n.includes(pattern)) return { key: catKey, ...CATEGORIES[catKey] }
+  }
   for (const [key, cat] of Object.entries(CATEGORIES)) {
     if (cat.keywords.some(k => n.includes(k))) return { key, ...cat }
   }
@@ -102,8 +129,8 @@ function LogModal({ exercise, defaultSets, defaultReps, onLog, onClose }) {
         onClick={onClose} />
       <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 30, stiffness: 320 }}
-        className="fixed bottom-0 left-0 right-0 z-50 rounded-t-[28px] px-5 pt-5 pb-10"
-        style={{ background: '#0d1117', border: `1px solid ${cat.color}30`, boxShadow: `0 -12px 60px ${cat.color}18, 0 -2px 0 ${cat.color}40` }}>
+        className="fixed bottom-0 left-0 right-0 z-50 rounded-t-[28px] px-5 pt-5"
+        style={{ background: '#0d1117', border: `1px solid ${cat.color}30`, boxShadow: `0 -12px 60px ${cat.color}18, 0 -2px 0 ${cat.color}40`, paddingBottom: 'max(40px, env(safe-area-inset-bottom))' }}>
 
         <div className="w-10 h-1 rounded-full mx-auto mb-5" style={{ background: cat.color + '40' }} />
 
@@ -201,8 +228,8 @@ function SchedulePicker({ schedule, onChange, onClose }) {
         className="fixed inset-0 z-40 backdrop-blur-md" style={{ background:'rgba(0,0,0,0.75)' }} onClick={() => { onChange(local); onClose() }} />
       <motion.div initial={{ y:'100%' }} animate={{ y:0 }} exit={{ y:'100%' }}
         transition={{ type:'spring', damping:30, stiffness:320 }}
-        className="fixed bottom-0 left-0 right-0 z-50 rounded-t-[28px] px-5 pt-5 pb-10"
-        style={{ background:'#0d1117', border:'1px solid rgba(255,255,255,0.08)' }}>
+        className="fixed bottom-0 left-0 right-0 z-50 rounded-t-[28px] px-5 pt-5"
+        style={{ background:'#0d1117', border:'1px solid rgba(255,255,255,0.08)', paddingBottom: 'max(40px, env(safe-area-inset-bottom))' }}>
         <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mb-5" />
         <p className="text-lg font-black text-white mb-1">Weekly Schedule</p>
         <p className="text-xs text-gray-600 mb-5">Tap each day to cycle between gym, home, and rest.</p>
@@ -444,7 +471,8 @@ export default function Workout() {
       <AnimatePresence>
         {toast && (
           <motion.div initial={{ opacity:0, y:-16, scale:0.9 }} animate={{ opacity:1, y:0, scale:1 }} exit={{ opacity:0, scale:0.9 }}
-            className="fixed top-6 left-1/2 -translate-x-1/2 z-50 text-sm font-black px-6 py-3 rounded-full whitespace-nowrap"
+            className="fixed left-1/2 -translate-x-1/2 z-50 text-sm font-black px-6 py-3 rounded-full whitespace-nowrap"
+            style={{ top: 'max(24px, calc(env(safe-area-inset-top) + 8px))' }}
             style={{ background:'linear-gradient(135deg,#22c55e,#4ade80)', color:'#000', boxShadow:'0 4px 24px rgba(34,197,94,0.5)' }}>
             {toast}
           </motion.div>
@@ -560,16 +588,31 @@ export default function Workout() {
         </section>
       )}
 
-      {/* Previous exercises */}
+      {/* Previous exercises — grouped by category */}
       {prevExercises.length > 0 && (
         <section className="mb-6">
           <p className="text-[11px] font-bold text-gray-600 uppercase tracking-widest mb-3">Previous Exercises</p>
-          <div className="space-y-2">
-            {prevExercises.map((ex, i) => (
-              <ExerciseRow key={i} exercise={ex} showPR pr={prs[ex]} delay={i * 0.03}
-                onLog={() => setLogTarget({ exercise: ex })} />
-            ))}
-          </div>
+          {Object.entries(
+            prevExercises.reduce((acc, ex) => {
+              const cat = getCategory(ex)
+              if (!acc[cat.label]) acc[cat.label] = { cat, exercises: [] }
+              acc[cat.label].exercises.push(ex)
+              return acc
+            }, {})
+          ).map(([catLabel, { cat, exercises }], gi) => (
+            <div key={catLabel} className="mb-4 last:mb-0">
+              <div className="flex items-center gap-1.5 mb-2">
+                <div className="w-1.5 h-1.5 rounded-full" style={{ background: cat.color }} />
+                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: cat.color }}>{catLabel}</p>
+              </div>
+              <div className="space-y-2">
+                {exercises.map((ex, i) => (
+                  <ExerciseRow key={i} exercise={ex} showPR pr={prs[ex]} delay={(gi * 4 + i) * 0.03}
+                    onLog={() => setLogTarget({ exercise: ex })} />
+                ))}
+              </div>
+            </div>
+          ))}
         </section>
       )}
 
@@ -600,24 +643,37 @@ export default function Workout() {
       {recentGroups.length > 0 && (
         <div className="card p-4">
           <p className="text-[11px] font-bold text-gray-600 uppercase tracking-widest mb-3">Recent Sessions</p>
-          {recentGroups.map(([date, items]) => (
-            <div key={date} className="mb-4 last:mb-0">
-              <p className="text-[11px] text-gray-700 font-semibold mb-2">{date}</p>
-              {items.map(w => {
-                const cat = getCategory(w.exercise)
-                return (
-                  <motion.div key={w.id} layout className="flex items-center gap-3 py-2.5 border-b border-white/[0.04] last:border-0">
-                    <div className="w-1 h-7 rounded-full shrink-0" style={{ background: cat.color + '50' }} />
-                    <span className="flex-1 text-sm font-semibold text-gray-200">{w.exercise}</span>
-                    <span className="text-xs text-gray-600">{w.weight > 0 ? `${w.weight}lbs × ` : ''}{w.reps} × {w.sets}</span>
-                    {prs[w.exercise] === w.weight && w.weight > 0 && <span className="text-[10px] text-amber-400 font-bold">PR</span>}
-                    <motion.button whileTap={{ scale:0.8 }} onClick={() => deleteWorkout(w.id)}
-                      className="text-gray-700 hover:text-red-400 transition-colors text-lg w-6 text-center">×</motion.button>
-                  </motion.div>
-                )
-              })}
-            </div>
-          ))}
+          {recentGroups.map(([date, items]) => {
+            // Group exercises by muscle category
+            const byCategory = {}
+            for (const w of items) {
+              const cat = getCategory(w.exercise)
+              if (!byCategory[cat.label]) byCategory[cat.label] = { cat, entries: [] }
+              byCategory[cat.label].entries.push(w)
+            }
+            return (
+              <div key={date} className="mb-5 last:mb-0">
+                <p className="text-[11px] text-gray-600 font-bold uppercase tracking-widest mb-2">{date}</p>
+                {Object.entries(byCategory).map(([catLabel, { cat, entries }]) => (
+                  <div key={catLabel} className="mb-3 last:mb-0">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full" style={{ background: cat.color }} />
+                      <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: cat.color }}>{catLabel}</p>
+                    </div>
+                    {entries.map(w => (
+                      <motion.div key={w.id} layout className="flex items-center gap-3 py-2 pl-3 border-b border-white/[0.04] last:border-0">
+                        <span className="flex-1 text-sm font-semibold text-gray-200">{w.exercise}</span>
+                        <span className="text-xs text-gray-600">{w.weight > 0 ? `${w.weight}lbs × ` : ''}{w.reps} × {w.sets}</span>
+                        {prs[w.exercise] === w.weight && w.weight > 0 && <span className="text-[10px] text-amber-400 font-bold">PR</span>}
+                        <motion.button whileTap={{ scale:0.8 }} onClick={() => deleteWorkout(w.id)}
+                          className="text-gray-700 hover:text-red-400 transition-colors text-lg w-6 text-center">×</motion.button>
+                      </motion.div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )
+          })}
         </div>
       )}
 

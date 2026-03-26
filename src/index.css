@@ -82,7 +82,8 @@
   }
 
   .tab-page {
-    @apply px-4 pt-5 pb-28;
+    @apply px-4 pb-28;
+    padding-top: max(20px, env(safe-area-inset-top));
   }
 
   .section-label {
