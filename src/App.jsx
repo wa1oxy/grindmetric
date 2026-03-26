@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { AppProvider } from './contexts/AppContext'
-import { getSession, logout, onAuthChange } from './lib/auth'
+import { logout, onAuthChange } from './lib/auth'
 import { getSupabaseClient, db } from './lib/supabase'
 import BottomNav from './components/BottomNav'
 import Dashboard from './pages/Dashboard'
@@ -58,23 +58,34 @@ export default function App() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Initial session check
-    getSession().then(u => { setUser(u); setLoading(false) })
+    // Safety net — never stay loading more than 6 seconds
+    const timeout = setTimeout(() => setLoading(false), 6000)
 
-    // Listen for auth state changes (email verification redirect, sign out, etc.)
     const unsub = onAuthChange(async (event, session) => {
-      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
-        const row = await db.getUser(session.user.id)
-        let profile = {}
-        if (row?.profile_json) { try { profile = JSON.parse(row.profile_json) } catch {} }
-        setUser({ id: session.user.id, email: session.user.email, name: row?.name || session.user.user_metadata?.name || '', profile })
+      // INITIAL_SESSION fires instantly from localStorage cache (no network needed)
+      // — this is what runs when the app reopens from iPhone home screen
+      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        clearTimeout(timeout)
+        if (session) {
+          try {
+            const row = await db.getUser(session.user.id)
+            let profile = {}
+            if (row?.profile_json) { try { profile = JSON.parse(row.profile_json) } catch {} }
+            setUser({ id: session.user.id, email: session.user.email, name: row?.name || session.user.user_metadata?.name || '', profile })
+          } catch {
+            // Network unavailable — still log them in with cached session info
+            setUser({ id: session.user.id, email: session.user.email, name: session.user.user_metadata?.name || '', profile: {} })
+          }
+        }
         setLoading(false)
       } else if (event === 'SIGNED_OUT') {
+        clearTimeout(timeout)
         setUser(null)
         setLoading(false)
       }
     })
-    return unsub
+
+    return () => { clearTimeout(timeout); unsub() }
   }, [])
 
   const handleLogout = async () => { await logout(); setUser(null) }
