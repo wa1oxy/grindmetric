@@ -60,31 +60,35 @@ Give exactly 2-3 sentences of personalized, honest feedback tailored to their go
 export async function generateWorkoutPlan({ name, goal, daysPerWeek, sessionDuration, preferredTime, intensity, age, weight, height, sex, additionalNotes, hasCurrentPhoto, hasDreamPhoto, currentPhotoBase64, dreamPhotoBase64 }) {
   const stats = [age && `Age: ${age}`, weight && `Weight: ${weight}kg`, height && `Height: ${height}cm`, sex && `Sex: ${sex}`].filter(Boolean).join(', ')
 
-  const prompt = `You are an elite personal trainer creating a personalized fitness plan. Here are the client's details:
-Name: ${name}
-Goal: ${goal}
-Training days per week: ${daysPerWeek}
-Session duration: ${sessionDuration} minutes
-Preferred time: ${preferredTime}
-Intensity level: ${intensity}/5
+  const prompt = `You are an elite personal trainer building a highly specific plan. Think carefully before writing anything.
+
+CLIENT:
+Name: ${name} | Goal: ${goal} | ${daysPerWeek} days/week | ${sessionDuration} min sessions | Intensity: ${intensity}/5
 ${stats ? `Stats: ${stats}` : ''}
-${additionalNotes ? `Additional context from client: ${additionalNotes}` : ''}
-${hasCurrentPhoto ? 'Current physique photo provided (assess their starting point)' : ''}
-${hasDreamPhoto ? 'Dream physique photo provided (this is their target look)' : ''}
+${additionalNotes ? `IMPORTANT — Client notes (read carefully and build the entire plan around this): "${additionalNotes}"` : ''}
+${hasCurrentPhoto ? 'Current physique photo provided.' : ''}${hasDreamPhoto ? ' Dream physique photo provided.' : ''}
+
+RULES BEFORE YOU WRITE:
+- Extract every piece of equipment and constraint from the client notes. Use ALL of it.
+- NEVER assign rest to a day unless the client explicitly said they want rest that day.
+- If they have a decline bench at home: program decline push-up variations, pike push-ups, dips off bench, ab work, etc.
+- If they have bodyweight only: program push-up variations, pull variations, lunges, core, holds — not rest.
+- Gym days = barbell/machine work. Home days = creative bodyweight + whatever they have.
+- Every single training day must have real exercises. No wasted days.
 
 No intro. No fluff. Use **bold** for exercise names and key numbers. Use this exact format:
 
 ## THE GAP
-${hasCurrentPhoto && hasDreamPhoto ? 'From the photos: ' : ''}2 sentences max. What's missing physically and what needs to change.
+${hasCurrentPhoto && hasDreamPhoto ? 'From the photos: ' : ''}2 sentences. What's physically missing and what this plan targets.
 
 ## WEEKLY SPLIT
-One line per day. Bold the focus. E.g: "**Mon:** Push | **Tue:** Pull | **Wed:** Legs | **Thu:** Rest"
+One line per day. Label gym vs home. E.g: "**Mon (Gym):** Heavy Push | **Tue (Home):** Bodyweight Pull + Core"
 
 ## KEY LIFTS
-5-6 lifts. Each on its own line in this exact format: "**Exercise Name** | 4x6-8 | Short reason"
+6-8 exercises covering both gym and home days. Format: "**Exercise Name** | sets x reps | why it matters for this goal"
 
 ## NUTRITION
-2 sentences. Bold the calorie and protein targets. What to prioritize for this specific goal.
+2 sentences. Bold the **calorie target** and **protein target**. Specific to their goal.
 
 ## TIMELINE
 2 sentences. Bold the key milestones. Be honest about what takes time.`
