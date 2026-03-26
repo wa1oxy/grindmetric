@@ -29,18 +29,10 @@ export function AppProvider({ user: initialUser, children }) {
       db.getFoods(user.id),
       db.getWeightLogs(user.id),
     ]).then(([sbWorkouts, sbFoods, sbWeightLogs]) => {
-      if (sbWorkouts?.length) {
-        localStore.setWorkouts(sbWorkouts)
-        setWorkouts(sbWorkouts)
-      }
-      if (sbFoods?.length) {
-        localStore.setFoods(sbFoods)
-        setFoods(sbFoods)
-      }
-      if (sbWeightLogs?.length) {
-        localStore.setWeightLogs(sbWeightLogs)
-        setWeightLogs(sbWeightLogs)
-      }
+      // Use Supabase as source of truth if it returned a valid array (even empty)
+      if (Array.isArray(sbWorkouts)) { localStore.setWorkouts(sbWorkouts); setWorkouts(sbWorkouts) }
+      if (Array.isArray(sbFoods))    { localStore.setFoods(sbFoods);    setFoods(sbFoods) }
+      if (Array.isArray(sbWeightLogs)) { localStore.setWeightLogs(sbWeightLogs); setWeightLogs(sbWeightLogs) }
     }).catch(console.error)
   }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
