@@ -72,14 +72,22 @@ ${additionalNotes ? `Additional context from client: ${additionalNotes}` : ''}
 ${hasCurrentPhoto ? 'Current physique photo provided (assess their starting point)' : ''}
 ${hasDreamPhoto ? 'Dream physique photo provided (this is their target look)' : ''}
 
-Create a complete, realistic training plan. Include:
-1. **Weekly Schedule** — which muscle groups on which days (specific, no fluff)
-2. **Key Exercises** — 3-4 core movements per session
-3. **Volume & Intensity** — sets/reps/progression scheme matching their intensity level
-4. **Estimated Timeline** — honest estimate to reach their goal given their availability and intensity (weeks/months ranges)
-5. **Top 3 Tips** — specific advice for this person's goal
+Respond in this exact format — keep it tight, no extra explanation:
 
-Be direct, specific, and brutally honest. No motivational fluff. Format clearly with sections.`
+**VERDICT**
+1 sentence: honest assessment of their starting point and what's realistic.
+
+**WEEKLY SPLIT**
+Day-by-day in one line each. E.g. "Mon: Chest/Tri | Tue: Back/Bi | Wed: Rest..."
+
+**KEY LIFTS**
+Bullet list of 4-6 core exercises with sets x reps. Nothing else.
+
+**TIMELINE**
+One sentence. Honest timeframe to see real results.
+
+**#1 PRIORITY**
+One sentence. The single most important thing they need to do.`
 
   const parts = [{ text: prompt }]
   if (currentPhotoBase64) parts.push({ inline_data: { mime_type: 'image/jpeg', data: currentPhotoBase64 } })
