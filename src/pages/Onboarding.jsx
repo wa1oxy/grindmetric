@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { signup, login, hasAnyUsers } from '../lib/auth'
-import { generateWorkoutPlan } from '../lib/gemini'
+import { generateWorkoutPlan, customizeWorkoutPlan } from '../lib/gemini'
 import { inviteCodes } from '../lib/inviteCodes'
 
 const GOALS = [
@@ -59,6 +59,10 @@ export default function Onboarding({ onComplete }) {
   // Plan generation
   const [generating, setGenerating] = useState(false)
   const [plan, setPlan] = useState(null)
+  const [originalPlan, setOriginalPlan] = useState(null)
+  const [customizeInput, setCustomizeInput] = useState('')
+  const [customizing, setCustomizing] = useState(false)
+  const [customReply, setCustomReply] = useState('')
   const [validating, setValidating] = useState(false)
 
   const currentRef = useRef()
@@ -112,7 +116,22 @@ export default function Onboarding({ onComplete }) {
       dreamPhotoBase64: dreamPhoto ? dreamPhoto.split(',')[1] : null,
     })
     setPlan(planText)
+    setOriginalPlan(planText)
+    setCustomReply('')
     setGenerating(false)
+  }
+
+  const handleCustomize = async () => {
+    if (!customizeInput.trim() || customizing) return
+    setCustomizing(true)
+    const userProfile = { goal, daysPerWeek, sessionDuration, preferredTime, intensity, age, weight, height, sex }
+    const result = await customizeWorkoutPlan({ currentPlan: plan, request: customizeInput.trim(), userProfile })
+    if (result) {
+      setCustomReply(result.reply)
+      setPlan(result.newPlan)
+    }
+    setCustomizeInput('')
+    setCustomizing(false)
   }
 
   const handleFinish = () => {
@@ -560,13 +579,27 @@ export default function Onboarding({ onComplete }) {
                     </div>
                   </div>
                 ) : plan ? (
-                  <div className="flex-1 flex flex-col">
-                    <div className="text-center mb-5">
+                  <div className="flex-1 flex flex-col min-h-0">
+                    <div className="text-center mb-4">
                       <div className="text-4xl mb-2">🎯</div>
                       <h2 className="text-2xl font-black text-white">Your Plan is Ready</h2>
                       <p className="text-sm text-gray-500 mt-1">Personalized for {name}</p>
                     </div>
-                    <div className="flex-1 overflow-y-auto rounded-2xl p-4 mb-4 space-y-4"
+
+                    {/* AI reply to customization */}
+                    <AnimatePresence>
+                      {customReply && (
+                        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                          className="mb-3 rounded-xl px-4 py-3 text-sm text-blue-200 flex gap-2"
+                          style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)' }}>
+                          <span>🤖</span>
+                          <span>{customReply}</span>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Plan content */}
+                    <div className="flex-1 overflow-y-auto rounded-2xl p-4 mb-3 space-y-4"
                       style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)' }}>
                       {plan.split('\n\n').map((block, i) => {
                         const lines = block.trim().split('\n')
@@ -577,14 +610,43 @@ export default function Onboarding({ onComplete }) {
                           <div key={i}>
                             {header && <p className="text-xs font-bold tracking-widest text-green-400 uppercase mb-1.5">{header}</p>}
                             {body.map((line, j) => (
-                              <p key={j} className={`text-sm leading-relaxed ${line.startsWith('-') || line.startsWith('•') || line.startsWith('*') ? 'text-gray-300 pl-2' : 'text-gray-300'}`}>
-                                {line.replace(/^[-•*]\s*/, line.startsWith('*') && !line.startsWith('**') ? '• ' : '')}
+                              <p key={j} className="text-sm leading-relaxed text-gray-300">
+                                {line.replace(/^[-•*]\s*/, '• ').replace(/^• • /, '• ')}
                               </p>
                             ))}
                           </div>
                         )
                       })}
                     </div>
+
+                    {/* Customize input */}
+                    <div className="mb-3">
+                      <div className="flex gap-2">
+                        <input
+                          value={customizeInput}
+                          onChange={e => setCustomizeInput(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && !customizing && customizeInput.trim() && handleCustomize()}
+                          placeholder='e.g. "Can we skip leg day?" or "Add more cardio"'
+                          className="flex-1 rounded-xl px-3 py-2.5 text-sm text-white outline-none"
+                          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                          disabled={customizing}
+                        />
+                        <motion.button whileTap={{ scale: 0.95 }}
+                          onClick={handleCustomize}
+                          disabled={customizing || !customizeInput.trim()}
+                          className="rounded-xl px-4 py-2.5 text-sm font-bold transition-opacity"
+                          style={{ background: customizeInput.trim() ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.05)', color: customizeInput.trim() ? '#4ade80' : '#555', border: '1px solid rgba(34,197,94,0.3)' }}>
+                          {customizing ? '...' : '→'}
+                        </motion.button>
+                      </div>
+                      {plan !== originalPlan && (
+                        <button onClick={() => { setPlan(originalPlan); setCustomReply('') }}
+                          className="mt-2 text-xs text-gray-500 underline w-full text-center">
+                          ↩ Revert to original plan
+                        </button>
+                      )}
+                    </div>
+
                     <motion.button whileTap={{ scale: 0.97 }} onClick={handleFinish}
                       className="btn-primary w-full py-4 text-base">
                       Start Grinding 💪

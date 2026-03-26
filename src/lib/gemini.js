@@ -139,6 +139,35 @@ Give a 3-sentence weekly summary personalized to their goal: what went well, wha
   return result
 }
 
+export async function customizeWorkoutPlan({ currentPlan, request, userProfile }) {
+  const prompt = `You are an elite personal trainer. A client has a workout plan and wants to make a change.
+
+${profileContext(userProfile)}
+
+CURRENT PLAN:
+${currentPlan}
+
+CLIENT REQUEST: "${request}"
+
+Respond in this EXACT format — nothing else:
+
+REPLY: [1-2 sentences: honest, direct answer to their request — tell them if it's a bad idea and why, or confirm the change. No fluff.]
+
+PLAN:
+[Full updated plan in the same ## section format as the original. Make the requested change if it's reasonable, or make the best version of it if it's not ideal.]`
+
+  const result = await callGemini(prompt)
+  if (!result || result === '__NO_API_KEY__') return null
+
+  const replyMatch = result.match(/REPLY:\s*(.+?)(?=\nPLAN:|\n\nPLAN:)/s)
+  const planMatch = result.match(/PLAN:\n([\s\S]+)/)
+
+  return {
+    reply: replyMatch?.[1]?.trim() || '',
+    newPlan: planMatch?.[1]?.trim() || currentPlan,
+  }
+}
+
 export async function analyzeProgressPhoto(base64Image) {
   const prompt = `You are an elite fitness coach reviewing a progress photo. Give 2-3 sentences of honest, specific feedback on body composition, visible muscle development, and one area to focus on. No flattery.`
   return callGemini(prompt, base64Image)
