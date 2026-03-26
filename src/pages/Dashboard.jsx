@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useApp } from '../contexts/AppContext'
 import { getCoachingFeedback, getWeeklySummary } from '../lib/gemini'
@@ -95,6 +95,9 @@ export default function Dashboard({ onNavigate }) {
   const [aiText, setAiText] = useState(null)
   const [aiLoading, setAiLoading] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
+  const [aiCooldown, setAiCooldown] = useState(0) // seconds remaining
+  const aiLastFetch = useRef(0)
+  const aiCooldownRef = useRef(null)
   const [weeklyText, setWeeklyText] = useState(null)
   const [weeklyLoading, setWeeklyLoading] = useState(false)
   const [weeklyOpen, setWeeklyOpen] = useState(false)
@@ -108,12 +111,26 @@ export default function Dashboard({ onNavigate }) {
   const FAT_GOAL     = goals.fat
   const weightTrend = weightLogs.slice(0, 7).map(w => `${w.log_date}: ${w.weight_kg}kg`).join(', ') || 'No data'
 
+  const startCooldown = (seconds) => {
+    setAiCooldown(seconds)
+    clearInterval(aiCooldownRef.current)
+    aiCooldownRef.current = setInterval(() => {
+      setAiCooldown(s => { if (s <= 1) { clearInterval(aiCooldownRef.current); return 0 } return s - 1 })
+    }, 1000)
+  }
+
   const handleAI = async () => {
+    const now = Date.now()
+    const elapsed = (now - aiLastFetch.current) / 1000
+    if (elapsed < 60 && aiLastFetch.current > 0) return // still on cooldown
+    aiLastFetch.current = now
+    setAiText(null)   // clear old result so loading state shows cleanly
     setAiLoading(true)
     setAiOpen(true)
     const text = await getCoachingFeedback({ workouts: todayWorkouts, nutrition: todayNutrition, weightTrend, streak, userProfile: user?.profile })
     setAiText(text || 'AI coaching requires a Gemini API key — contact the app admin.')
     setAiLoading(false)
+    startCooldown(60)
   }
 
   const handleWeeklySummary = async () => {
@@ -254,15 +271,16 @@ export default function Dashboard({ onNavigate }) {
           <motion.button
             whileTap={{ scale: 0.94 }}
             onClick={handleAI}
-            disabled={aiLoading}
-            className="btn-primary text-xs px-4 py-2"
+            disabled={aiLoading || aiCooldown > 0}
+            className="btn-primary text-xs px-4 py-2 disabled:opacity-50"
           >
             {aiLoading ? (
               <span className="flex items-center gap-1.5">
                 <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }} className="inline-block">⚡</motion.span>
                 Analyzing...
               </span>
-            ) : 'Get Feedback'}
+            ) : aiCooldown > 0 ? `${aiCooldown}s`
+            : aiText ? 'Refresh' : 'Get Feedback'}
           </motion.button>
         </div>
         <AnimatePresence>

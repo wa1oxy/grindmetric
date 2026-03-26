@@ -123,7 +123,7 @@ export default function Progress() {
       </motion.div>
 
       {/* Photo upload */}
-      <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleUpload} />
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
       <motion.button whileTap={{ scale: 0.97 }} onClick={() => fileRef.current.click()}
         className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl mb-4 text-sm font-bold text-white"
         style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(59,130,246,0.1))', border: '1px solid rgba(139,92,246,0.25)' }}>
