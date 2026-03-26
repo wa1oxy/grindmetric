@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { signup, login, hasAnyUsers, resetPassword } from '../lib/auth'
 import { generateWorkoutPlan, customizeWorkoutPlan } from '../lib/gemini'
 import { inviteCodes } from '../lib/inviteCodes'
+import { calculateNutritionGoals } from '../lib/nutrition'
 
 const GOALS = [
   { id: 'lose_fat',   label: 'Lose Fat',          emoji: '🔥', desc: 'Burn fat & get lean' },
@@ -146,6 +147,7 @@ export default function Onboarding({ onComplete }) {
       goal, daysPerWeek, sessionDuration, preferredTime,
       intensity, age, weight, height, sex,
       additionalNotes, currentPhoto, dreamPhoto, workoutPlan: plan,
+      nutritionGoals: calculateNutritionGoals({ goal, daysPerWeek, age, weight, height, sex }),
       onboardedAt: new Date().toISOString(),
     }
     const result = await signup({ name, email, password, profile })

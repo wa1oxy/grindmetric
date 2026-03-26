@@ -2,12 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useApp } from '../contexts/AppContext'
 import { getCoachingFeedback, getWeeklySummary } from '../lib/gemini'
+import { calculateNutritionGoals } from '../lib/nutrition'
 import { format } from 'date-fns'
-
-const CALORIE_GOAL = 2200
-const PROTEIN_GOAL = 180
-const CARBS_GOAL = 220
-const FAT_GOAL = 70
 
 // Animated number that counts up
 function CountUp({ value, duration = 600 }) {
@@ -105,6 +101,11 @@ export default function Dashboard({ onNavigate }) {
 
   const today = format(new Date(), "EEEE, MMM d")
   const { calories, protein, carbs, fat } = todayNutrition
+  const goals = user?.profile?.nutritionGoals || calculateNutritionGoals(user?.profile)
+  const CALORIE_GOAL = goals.calories
+  const PROTEIN_GOAL = goals.protein
+  const CARBS_GOAL   = goals.carbs
+  const FAT_GOAL     = goals.fat
   const weightTrend = weightLogs.slice(0, 7).map(w => `${w.log_date}: ${w.weight_kg}kg`).join(', ') || 'No data'
 
   const handleAI = async () => {

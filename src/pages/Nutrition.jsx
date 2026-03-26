@@ -2,10 +2,9 @@ import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useApp } from '../contexts/AppContext'
 import { parseFoodFromText } from '../lib/gemini'
+import { calculateNutritionGoals } from '../lib/nutrition'
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { format, subDays } from 'date-fns'
-
-const CALORIE_GOAL = 2200
 
 async function searchUSDA(query) {
   try {
@@ -60,6 +59,11 @@ function MacroRing({ value, goal, color, label }) {
 
 export default function Nutrition() {
   const { foods, addFood, deleteFood, todayFoods, todayNutrition, user } = useApp()
+  const goals = user?.profile?.nutritionGoals || calculateNutritionGoals(user?.profile)
+  const CALORIE_GOAL = goals.calories
+  const PROTEIN_GOAL = goals.protein
+  const CARBS_GOAL   = goals.carbs
+  const FAT_GOAL     = goals.fat
   const [foodName, setFoodName] = useState('')
   const [calories, setCalories] = useState('')
   const [protein, setProtein] = useState('')
@@ -171,9 +175,9 @@ export default function Nutrition() {
         </div>
         {/* Macro rings */}
         <div className="flex justify-around">
-          <MacroRing value={todayNutrition.protein} goal={180} color="#3b82f6" label="Protein" />
-          <MacroRing value={todayNutrition.carbs}   goal={220} color="#f59e0b" label="Carbs" />
-          <MacroRing value={todayNutrition.fat}     goal={70}  color="#ef4444" label="Fat" />
+          <MacroRing value={todayNutrition.protein} goal={PROTEIN_GOAL} color="#3b82f6" label="Protein" />
+          <MacroRing value={todayNutrition.carbs}   goal={CARBS_GOAL}   color="#f59e0b" label="Carbs" />
+          <MacroRing value={todayNutrition.fat}     goal={FAT_GOAL}     color="#ef4444" label="Fat" />
         </div>
       </motion.div>
 
