@@ -58,34 +58,46 @@ export default function App() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Safety net — never stay loading more than 6 seconds
-    const timeout = setTimeout(() => setLoading(false), 6000)
+    let settled = false
+
+    // Called exactly once — whichever path wins (auth event, timeout, error)
+    const finish = (userObj) => {
+      if (settled) return
+      settled = true
+      setUser(userObj ?? null)
+      setLoading(false)
+    }
+
+    // Absolute safety net — 8 seconds then give up and show onboarding
+    const hardTimeout = setTimeout(() => finish(null), 8000)
 
     const unsub = onAuthChange(async (event, session) => {
-      // INITIAL_SESSION fires instantly from localStorage cache (no network needed)
-      // — this is what runs when the app reopens from iPhone home screen
+      // INITIAL_SESSION fires instantly from localStorage cache — no network needed.
+      // This is what runs every time the app opens from the iPhone home screen.
       if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        clearTimeout(timeout)
         if (session) {
+          // Race db.getUser() against a 3s timeout so a hanging network
+          // call can't block loading forever
+          let row = null
           try {
-            const row = await db.getUser(session.user.id)
-            let profile = {}
-            if (row?.profile_json) { try { profile = JSON.parse(row.profile_json) } catch {} }
-            setUser({ id: session.user.id, email: session.user.email, name: row?.name || session.user.user_metadata?.name || '', profile })
-          } catch {
-            // Network unavailable — still log them in with cached session info
-            setUser({ id: session.user.id, email: session.user.email, name: session.user.user_metadata?.name || '', profile: {} })
-          }
+            row = await Promise.race([
+              db.getUser(session.user.id),
+              new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000)),
+            ])
+          } catch { /* network slow/offline — proceed with no profile row */ }
+
+          let profile = {}
+          if (row?.profile_json) { try { profile = JSON.parse(row.profile_json) } catch {} }
+          finish({ id: session.user.id, email: session.user.email, name: row?.name || session.user.user_metadata?.name || '', profile })
+        } else {
+          finish(null)
         }
-        setLoading(false)
       } else if (event === 'SIGNED_OUT') {
-        clearTimeout(timeout)
-        setUser(null)
-        setLoading(false)
+        finish(null)
       }
     })
 
-    return () => { clearTimeout(timeout); unsub() }
+    return () => { clearTimeout(hardTimeout); unsub() }
   }, [])
 
   const handleLogout = async () => { await logout(); setUser(null) }
