@@ -72,22 +72,22 @@ ${additionalNotes ? `Additional context from client: ${additionalNotes}` : ''}
 ${hasCurrentPhoto ? 'Current physique photo provided (assess their starting point)' : ''}
 ${hasDreamPhoto ? 'Dream physique photo provided (this is their target look)' : ''}
 
-RULES: No markdown. No bold. No asterisks. No intro sentence. No explanations. Hard limit: 120 words total. Just the data.
+No intro. No fluff. Use **bold** for exercise names and key numbers. Use this exact format:
 
 ## THE GAP
-${hasCurrentPhoto && hasDreamPhoto ? 'From the photos: ' : ''}One sentence max. What's missing between now and the goal.
+${hasCurrentPhoto && hasDreamPhoto ? 'From the photos: ' : ''}2 sentences max. What's missing physically and what needs to change.
 
 ## WEEKLY SPLIT
-One line. Format: "Mon: X | Tue: Y | Wed: Z..." — no extra words.
+One line per day. Bold the focus. E.g: "**Mon:** Push | **Tue:** Pull | **Wed:** Legs | **Thu:** Rest"
 
 ## KEY LIFTS
-4 lifts only. Format per line: "Squat — 4x6"
+5-6 lifts. Each on its own line: "**Exercise** — sets x reps — one short reason why"
 
 ## NUTRITION
-One line: "Eat Xkcal, Xg protein daily."
+2 sentences. Bold the calorie and protein targets. What to prioritize for this specific goal.
 
 ## TIMELINE
-One line: "X weeks to first results, X months to goal."`
+2 sentences. Bold the key milestones. Be honest about what takes time.`
 
   const parts = [{ text: prompt }]
   if (currentPhotoBase64) parts.push({ inline_data: { mime_type: 'image/jpeg', data: currentPhotoBase64 } })

@@ -609,11 +609,20 @@ export default function Onboarding({ onComplete }) {
                         return (
                           <div key={i}>
                             {header && <p className="text-xs font-bold tracking-widest text-green-400 uppercase mb-1.5">{header}</p>}
-                            {body.map((line, j) => (
-                              <p key={j} className="text-sm leading-relaxed text-gray-300">
-                                {line.replace(/\*\*/g, '').replace(/^[-•*\d]+[.)]\s*/, '').trim()}
-                              </p>
-                            ))}
+                            {body.map((line, j) => {
+                              const clean = line.replace(/^[-•]\s*/, '').trim()
+                              if (!clean) return null
+                              const parts = clean.split(/(\*\*[^*]+\*\*)/)
+                              return (
+                                <p key={j} className="text-sm leading-relaxed text-gray-300 mb-0.5">
+                                  {parts.map((p, k) =>
+                                    p.startsWith('**') && p.endsWith('**')
+                                      ? <span key={k} className="font-bold text-white">{p.slice(2, -2)}</span>
+                                      : p
+                                  )}
+                                </p>
+                              )
+                            })}
                           </div>
                         )
                       })}
