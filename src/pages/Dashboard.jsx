@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useApp } from '../contexts/AppContext'
 import { getCoachingFeedback, getWeeklySummary } from '../lib/gemini'
@@ -95,9 +95,9 @@ export default function Dashboard({ onNavigate }) {
   const [aiText, setAiText] = useState(null)
   const [aiLoading, setAiLoading] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
-  const [aiCooldown, setAiCooldown] = useState(0) // seconds remaining
-  const aiLastFetch = useRef(0)
+  const [aiCooldown, setAiCooldown] = useState(0)
   const aiCooldownRef = useRef(null)
+  const AI_COOLDOWN_KEY = 'gm_ai_coach_cooldown_until'
   const [weeklyText, setWeeklyText] = useState(null)
   const [weeklyLoading, setWeeklyLoading] = useState(false)
   const [weeklyOpen, setWeeklyOpen] = useState(false)
@@ -112,19 +112,29 @@ export default function Dashboard({ onNavigate }) {
   const weightTrend = weightLogs.slice(0, 7).map(w => `${w.log_date}: ${w.weight_kg}kg`).join(', ') || 'No data'
 
   const startCooldown = (seconds) => {
-    setAiCooldown(seconds)
+    const until = Date.now() + seconds * 1000
+    localStorage.setItem(AI_COOLDOWN_KEY, String(until))
+    const tick = () => {
+      const remaining = Math.ceil((until - Date.now()) / 1000)
+      if (remaining <= 0) { clearInterval(aiCooldownRef.current); setAiCooldown(0); return }
+      setAiCooldown(remaining)
+    }
+    tick()
     clearInterval(aiCooldownRef.current)
-    aiCooldownRef.current = setInterval(() => {
-      setAiCooldown(s => { if (s <= 1) { clearInterval(aiCooldownRef.current); return 0 } return s - 1 })
-    }, 1000)
+    aiCooldownRef.current = setInterval(tick, 1000)
   }
 
+  // Restore cooldown if tab was switched or component remounted
+  useEffect(() => {
+    const until = parseInt(localStorage.getItem(AI_COOLDOWN_KEY) || '0')
+    const remaining = Math.ceil((until - Date.now()) / 1000)
+    if (remaining > 0) startCooldown(remaining)
+    return () => clearInterval(aiCooldownRef.current)
+  }, [])
+
   const handleAI = async () => {
-    const now = Date.now()
-    const elapsed = (now - aiLastFetch.current) / 1000
-    if (elapsed < 60 && aiLastFetch.current > 0) return // still on cooldown
-    aiLastFetch.current = now
-    setAiText(null)   // clear old result so loading state shows cleanly
+    if (aiLoading || aiCooldown > 0) return
+    setAiText(null)
     setAiLoading(true)
     setAiOpen(true)
     const text = await getCoachingFeedback({ workouts: todayWorkouts, nutrition: todayNutrition, weightTrend, streak, userProfile: user?.profile })
