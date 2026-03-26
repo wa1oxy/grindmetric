@@ -81,7 +81,7 @@ ${hasCurrentPhoto && hasDreamPhoto ? 'From the photos: ' : ''}2 sentences max. W
 One line per day. Bold the focus. E.g: "**Mon:** Push | **Tue:** Pull | **Wed:** Legs | **Thu:** Rest"
 
 ## KEY LIFTS
-5-6 lifts. Each on its own line: "**Exercise** — sets x reps — one short reason why"
+5-6 lifts. Each on its own line in this exact format: "**Exercise Name** | 4x6-8 | Short reason"
 
 ## NUTRITION
 2 sentences. Bold the calorie and protein targets. What to prioritize for this specific goal.

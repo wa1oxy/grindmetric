@@ -599,30 +599,72 @@ export default function Onboarding({ onComplete }) {
                     </AnimatePresence>
 
                     {/* Plan content */}
-                    <div className="flex-1 overflow-y-auto rounded-2xl p-4 mb-3 space-y-4"
-                      style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)' }}>
+                    <div className="flex-1 overflow-y-auto mb-3 space-y-3">
                       {plan.split('\n\n').map((block, i) => {
                         const lines = block.trim().split('\n')
                         const isHeader = lines[0].startsWith('##')
-                        const header = isHeader ? lines[0].replace(/^#+\s*/, '') : null
-                        const body = isHeader ? lines.slice(1) : lines
+                        if (!isHeader) return null
+                        const header = lines[0].replace(/^#+\s*/, '').trim()
+                        const body = lines.slice(1).filter(l => l.trim())
+                        const isLifts = header.includes('LIFT') || header.includes('MOVEMENT')
+                        const isSplit = header.includes('SPLIT') || header.includes('PLAN')
+
                         return (
-                          <div key={i}>
-                            {header && <p className="text-xs font-bold tracking-widest text-green-400 uppercase mb-1.5">{header}</p>}
-                            {body.map((line, j) => {
-                              const clean = line.replace(/^[-•]\s*/, '').trim()
-                              if (!clean) return null
-                              const parts = clean.split(/(\*\*[^*]+\*\*)/)
-                              return (
-                                <p key={j} className="text-sm leading-relaxed text-gray-300 mb-0.5">
-                                  {parts.map((p, k) =>
-                                    p.startsWith('**') && p.endsWith('**')
-                                      ? <span key={k} className="font-bold text-white">{p.slice(2, -2)}</span>
-                                      : p
-                                  )}
-                                </p>
-                              )
-                            })}
+                          <div key={i} className="rounded-2xl p-4"
+                            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                            <p className="text-[10px] font-bold tracking-widest text-green-400 uppercase mb-3">{header}</p>
+
+                            {isLifts ? (
+                              <div className="space-y-2.5">
+                                {body.map((line, j) => {
+                                  const clean = line.replace(/^[-•]\s*/, '').trim()
+                                  const parts = clean.split('|').map(s => s.trim())
+                                  const nameParts = (parts[0] || '').split(/(\*\*[^*]+\*\*)/)
+                                  return (
+                                    <div key={j} className="flex items-start gap-3">
+                                      <div className="flex-1">
+                                        <p className="text-sm font-semibold text-white leading-snug">
+                                          {nameParts.map((p, k) => p.startsWith('**') && p.endsWith('**')
+                                            ? <span key={k}>{p.slice(2, -2)}</span> : p)}
+                                        </p>
+                                        {parts[2] && <p className="text-xs text-gray-500 mt-0.5">{parts[2]}</p>}
+                                      </div>
+                                      {parts[1] && (
+                                        <span className="shrink-0 text-xs font-bold text-green-400 bg-green-400/10 px-2 py-1 rounded-lg">{parts[1]}</span>
+                                      )}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            ) : isSplit ? (
+                              <div className="space-y-1.5">
+                                {body.map((line, j) => {
+                                  const clean = line.replace(/^[-•]\s*/, '').trim()
+                                  const colonIdx = clean.indexOf(':')
+                                  const day = colonIdx !== -1 ? clean.slice(0, colonIdx).replace(/\*\*/g, '') : ''
+                                  const focus = colonIdx !== -1 ? clean.slice(colonIdx + 1).trim().replace(/\*\*/g, '') : clean.replace(/\*\*/g, '')
+                                  return (
+                                    <div key={j} className="flex items-center gap-2">
+                                      <span className="text-xs font-bold text-green-400 w-16 shrink-0">{day}</span>
+                                      <span className="text-sm text-gray-300">{focus}</span>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            ) : (
+                              <div className="space-y-1">
+                                {body.map((line, j) => {
+                                  const clean = line.replace(/^[-•]\s*/, '').trim()
+                                  const parts = clean.split(/(\*\*[^*]+\*\*)/)
+                                  return (
+                                    <p key={j} className="text-sm text-gray-300 leading-relaxed">
+                                      {parts.map((p, k) => p.startsWith('**') && p.endsWith('**')
+                                        ? <span key={k} className="font-bold text-white">{p.slice(2, -2)}</span> : p)}
+                                    </p>
+                                  )
+                                })}
+                              </div>
+                            )}
                           </div>
                         )
                       })}
