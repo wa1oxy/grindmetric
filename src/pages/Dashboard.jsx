@@ -92,12 +92,19 @@ function MacroBar({ label, value, goal, color, delay = 0 }) {
 
 export default function Dashboard({ onNavigate }) {
   const { todayWorkouts, todayFoods, todayNutrition, streak, workouts, weightLogs, foods, user } = useApp()
-  const [aiText, setAiText] = useState(null)
+  const AI_FEEDBACK_KEY = 'gm_ai_coach_feedback'
+  const AI_COOLDOWN_KEY = 'gm_ai_coach_cooldown_until'
+  const [aiText, setAiTextState] = useState(() => localStorage.getItem(AI_FEEDBACK_KEY) || null)
   const [aiLoading, setAiLoading] = useState(false)
-  const [aiOpen, setAiOpen] = useState(false)
+  const [aiOpen, setAiOpen] = useState(() => !!localStorage.getItem(AI_FEEDBACK_KEY))
   const [aiCooldown, setAiCooldown] = useState(0)
   const aiCooldownRef = useRef(null)
-  const AI_COOLDOWN_KEY = 'gm_ai_coach_cooldown_until'
+
+  const setAiText = (text) => {
+    setAiTextState(text)
+    if (text) localStorage.setItem(AI_FEEDBACK_KEY, text)
+    else localStorage.removeItem(AI_FEEDBACK_KEY)
+  }
   const [weeklyText, setWeeklyText] = useState(null)
   const [weeklyLoading, setWeeklyLoading] = useState(false)
   const [weeklyOpen, setWeeklyOpen] = useState(false)
