@@ -2,7 +2,6 @@ import { createContext, useContext, useState, useCallback, useEffect } from 'rea
 import { localStore, setStorePrefix } from '../lib/localStore'
 import { setGeminiUserId } from '../lib/gemini'
 import { db, isSupabaseConfigured } from '../lib/supabase'
-import { updateUserProfile } from '../lib/auth'
 
 const AppContext = createContext(null)
 
@@ -116,13 +115,12 @@ export function AppProvider({ user: initialUser, children }) {
   )
 
   const saveProfile = useCallback((profileUpdates) => {
-    const updated = updateUserProfile(user.id, profileUpdates)
-    if (updated) {
-      setUser(u => ({ ...u, profile: { ...u.profile, ...profileUpdates } }))
-      if (isSupabaseConfigured()) db.upsertUser(updated).catch(console.error)
-    }
-    return updated
-  }, [user.id])
+    const newProfile = { ...user.profile, ...profileUpdates }
+    const newUser = { ...user, profile: newProfile }
+    setUser(newUser)
+    db.upsertUser(newUser).catch(console.error)
+    return newUser
+  }, [user])
 
   const value = {
     user,

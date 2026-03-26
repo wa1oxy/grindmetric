@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { signup, login, hasAnyUsers } from '../lib/auth'
+import { signup, login, hasAnyUsers, resetPassword } from '../lib/auth'
 import { generateWorkoutPlan, customizeWorkoutPlan } from '../lib/gemini'
 import { inviteCodes } from '../lib/inviteCodes'
 
@@ -29,7 +29,7 @@ const slide = {
 }
 
 export default function Onboarding({ onComplete }) {
-  const [mode, setMode] = useState(hasAnyUsers() ? 'login' : 'signup') // 'signup' | 'login'
+  const [mode, setMode] = useState('signup') // 'signup' | 'login'
   const [step, setStep] = useState(0) // 0-7 for signup steps
   const [direction, setDirection] = useState(1)
 
@@ -64,6 +64,12 @@ export default function Onboarding({ onComplete }) {
   const [customizing, setCustomizing] = useState(false)
   const [customReply, setCustomReply] = useState('')
   const [validating, setValidating] = useState(false)
+  const [verificationPending, setVerificationPending] = useState(false)
+  const [verifyEmail, setVerifyEmail] = useState('')
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [resetSent, setResetSent] = useState(false)
+  const [signingUp, setSigningUp] = useState(false)
 
   const currentRef = useRef()
   const dreamRef = useRef()
@@ -134,23 +140,30 @@ export default function Onboarding({ onComplete }) {
     setCustomizing(false)
   }
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
+    setSigningUp(true)
     const profile = {
       goal, daysPerWeek, sessionDuration, preferredTime,
       intensity, age, weight, height, sex,
-      additionalNotes,
-      currentPhoto, dreamPhoto, workoutPlan: plan,
+      additionalNotes, currentPhoto, dreamPhoto, workoutPlan: plan,
       onboardedAt: new Date().toISOString(),
     }
-    const result = signup({ name, email, password, profile })
-    if (result.error) { setAuthError(result.error); return }
+    const result = await signup({ name, email, password, profile })
+    if (result.error) { setAuthError(result.error); setSigningUp(false); return }
+    if (result.needsVerification) {
+      await inviteCodes.markUsed(inviteCode, email).catch(console.error)
+      setVerifyEmail(email)
+      setVerificationPending(true)
+      setSigningUp(false)
+      return
+    }
     inviteCodes.markUsed(inviteCode, email).catch(console.error)
     onComplete(result.user)
   }
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setAuthError('')
-    const result = login({ email: loginEmail, password: loginPassword })
+    const result = await login({ email: loginEmail, password: loginPassword })
     if (result.error) { setAuthError(result.error); return }
     onComplete(result.user)
   }
@@ -178,11 +191,50 @@ export default function Onboarding({ onComplete }) {
             className="btn-primary w-full py-4 text-base mb-4 disabled:opacity-30">
             Sign In
           </motion.button>
+          {!showForgotPassword ? (
+            <button onClick={() => setShowForgotPassword(true)}
+              className="text-xs text-gray-600 underline text-center w-full mt-3">
+              Forgot password?
+            </button>
+          ) : resetSent ? (
+            <div className="mt-4 text-center">
+              <p className="text-sm text-green-400">✓ Reset link sent to {forgotEmail}</p>
+              <button onClick={() => { setShowForgotPassword(false); setResetSent(false) }} className="text-xs text-gray-600 underline mt-2">Back to login</button>
+            </div>
+          ) : (
+            <div className="mt-4 space-y-3">
+              <input value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
+                placeholder="Enter your email" type="email"
+                className="input-field w-full h-12 text-sm" />
+              <motion.button whileTap={{ scale: 0.97 }}
+                onClick={async () => {
+                  const r = await resetPassword(forgotEmail)
+                  if (r.success) setResetSent(true)
+                  else setAuthError(r.error || 'Failed to send reset email')
+                }}
+                className="btn-primary w-full py-3 text-sm">
+                Send Reset Link
+              </motion.button>
+              <button onClick={() => setShowForgotPassword(false)} className="text-xs text-gray-600 underline text-center w-full">Cancel</button>
+            </div>
+          )}
           <button onClick={() => { setMode('signup'); setStep(0); setAuthError('') }}
-            className="w-full text-center text-sm text-gray-500 hover:text-brand-400 transition-colors">
+            className="w-full text-center text-sm text-gray-500 hover:text-brand-400 transition-colors mt-4">
             No account? <span className="text-brand-400 font-bold">Create one free</span>
           </button>
         </motion.div>
+      </div>
+    )
+  }
+
+  if (verificationPending) {
+    return (
+      <div className="min-h-screen bg-[#030712] flex flex-col items-center justify-center p-6 text-center">
+        <div className="text-6xl mb-6">✉️</div>
+        <h2 className="text-2xl font-black text-white mb-3">Check your email</h2>
+        <p className="text-sm text-gray-400 mb-2">We sent a verification link to</p>
+        <p className="text-sm font-bold text-green-400 mb-6">{verifyEmail}</p>
+        <p className="text-xs text-gray-600 max-w-xs">Click the link in the email to activate your account. Then come back here and sign in.</p>
       </div>
     )
   }
@@ -701,9 +753,9 @@ export default function Onboarding({ onComplete }) {
                       )}
                     </div>
 
-                    <motion.button whileTap={{ scale: 0.97 }} onClick={handleFinish}
-                      className="btn-primary w-full py-4 text-base">
-                      Start Grinding 💪
+                    <motion.button whileTap={{ scale: 0.97 }} onClick={handleFinish} disabled={signingUp}
+                      className="btn-primary w-full py-4 text-base disabled:opacity-50">
+                      {signingUp ? 'Creating account...' : 'Start Grinding 💪'}
                     </motion.button>
                   </div>
                 ) : null}

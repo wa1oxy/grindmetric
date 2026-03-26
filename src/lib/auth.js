@@ -1,71 +1,76 @@
-import { db, isSupabaseConfigured } from './supabase'
+import { getSupabaseClient, isSupabaseConfigured, db } from './supabase'
 
-const USERS_KEY = 'gm_users'
-const SESSION_KEY = 'gm_session'
-
-function getUsers() {
-  try { return JSON.parse(localStorage.getItem(USERS_KEY) || '[]') } catch { return [] }
-}
-
-export function getSession() {
-  try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null') } catch { return null }
-}
-
-export function signup({ name, email, password, profile }) {
-  const users = getUsers()
-  if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
-    return { error: 'An account with this email already exists' }
+function buildUser(authUser, row) {
+  let profile = {}
+  if (row?.profile_json) {
+    try { profile = JSON.parse(row.profile_json) } catch {}
   }
-  const user = {
-    id: `user_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-    name,
-    email: email.toLowerCase(),
-    password,
-    profile: profile || {},
-    created_at: new Date().toISOString(),
-  }
-  users.push(user)
-  localStorage.setItem(USERS_KEY, JSON.stringify(users))
-  const session = { id: user.id, name: user.name, email: user.email, profile: user.profile }
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session))
-  // Sync new user profile to Supabase
-  if (isSupabaseConfigured()) {
-    db.upsertUser(session).catch(console.error)
-  }
-  return { user: session }
-}
-
-export function login({ email, password }) {
-  const users = getUsers()
-  const user = users.find(u => u.email === email.toLowerCase() && u.password === password)
-  if (!user) return { error: 'Invalid email or password' }
-  const session = { id: user.id, name: user.name, email: user.email, profile: user.profile }
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session))
-  return { user: session }
-}
-
-export function logout() {
-  localStorage.removeItem(SESSION_KEY)
-}
-
-export function hasAnyUsers() {
-  return getUsers().length > 0
-}
-
-export function updateUserProfile(userId, profileUpdates) {
-  const users = getUsers()
-  const idx = users.findIndex(u => u.id === userId)
-  if (idx < 0) return null
-  users[idx].profile = { ...users[idx].profile, ...profileUpdates }
-  localStorage.setItem(USERS_KEY, JSON.stringify(users))
-  const session = getSession()
-  if (session && session.id === userId) {
-    const newSession = { ...session, profile: users[idx].profile }
-    localStorage.setItem(SESSION_KEY, JSON.stringify(newSession))
-    if (isSupabaseConfigured()) {
-      db.upsertUser(newSession).catch(console.error)
+  if (!profile.goal && row) {
+    profile = {
+      goal: row.goal, daysPerWeek: row.days_per_week,
+      sessionDuration: row.session_duration, preferredTime: row.preferred_time,
+      intensity: row.intensity, age: row.age, weight: row.weight_kg,
+      height: row.height_cm, sex: row.sex, additionalNotes: row.additional_notes,
+      workoutPlan: row.workout_plan, onboardedAt: row.onboarded_at,
     }
-    return newSession
   }
-  return null
+  return {
+    id: authUser.id,
+    email: authUser.email,
+    name: row?.name || authUser.user_metadata?.name || '',
+    profile,
+  }
 }
+
+export async function signup({ name, email, password, profile }) {
+  if (!isSupabaseConfigured()) return { error: 'Backend not configured.' }
+  const sb = getSupabaseClient()
+  const { data, error } = await sb.auth.signUp({
+    email, password,
+    options: { data: { name }, emailRedirectTo: window.location.origin },
+  })
+  if (error) return { error: error.message }
+  const userObj = { id: data.user.id, email, name, profile }
+  await db.upsertUser(userObj)
+  if (!data.session) return { needsVerification: true, email }
+  return { user: userObj }
+}
+
+export async function login({ email, password }) {
+  if (!isSupabaseConfigured()) return { error: 'Backend not configured.' }
+  const sb = getSupabaseClient()
+  const { data, error } = await sb.auth.signInWithPassword({ email, password })
+  if (error) return { error: error.message }
+  const row = await db.getUser(data.user.id)
+  return { user: buildUser(data.user, row) }
+}
+
+export async function logout() {
+  if (!isSupabaseConfigured()) return
+  await getSupabaseClient().auth.signOut()
+}
+
+export async function getSession() {
+  if (!isSupabaseConfigured()) return null
+  const sb = getSupabaseClient()
+  const { data: { session } } = await sb.auth.getSession()
+  if (!session) return null
+  const row = await db.getUser(session.user.id)
+  return buildUser(session.user, row)
+}
+
+export async function resetPassword(email) {
+  if (!isSupabaseConfigured()) return { error: 'Backend not configured.' }
+  const { error } = await getSupabaseClient().auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin,
+  })
+  return error ? { error: error.message } : { success: true }
+}
+
+export function onAuthChange(callback) {
+  if (!isSupabaseConfigured()) return () => {}
+  const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange(callback)
+  return () => subscription.unsubscribe()
+}
+
+export function hasAnyUsers() { return true }
