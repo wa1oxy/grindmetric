@@ -566,9 +566,24 @@ export default function Onboarding({ onComplete }) {
                       <h2 className="text-2xl font-black text-white">Your Plan is Ready</h2>
                       <p className="text-sm text-gray-500 mt-1">Personalized for {name}</p>
                     </div>
-                    <div className="flex-1 overflow-y-auto rounded-2xl p-4 mb-4"
+                    <div className="flex-1 overflow-y-auto rounded-2xl p-4 mb-4 space-y-4"
                       style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)' }}>
-                      <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{plan}</p>
+                      {plan.split('\n\n').map((block, i) => {
+                        const lines = block.trim().split('\n')
+                        const isHeader = lines[0].startsWith('##')
+                        const header = isHeader ? lines[0].replace(/^#+\s*/, '') : null
+                        const body = isHeader ? lines.slice(1) : lines
+                        return (
+                          <div key={i}>
+                            {header && <p className="text-xs font-bold tracking-widest text-green-400 uppercase mb-1.5">{header}</p>}
+                            {body.map((line, j) => (
+                              <p key={j} className={`text-sm leading-relaxed ${line.startsWith('-') || line.startsWith('•') || line.startsWith('*') ? 'text-gray-300 pl-2' : 'text-gray-300'}`}>
+                                {line.replace(/^[-•*]\s*/, line.startsWith('*') && !line.startsWith('**') ? '• ' : '')}
+                              </p>
+                            ))}
+                          </div>
+                        )
+                      })}
                     </div>
                     <motion.button whileTap={{ scale: 0.97 }} onClick={handleFinish}
                       className="btn-primary w-full py-4 text-base">
