@@ -637,16 +637,19 @@ export default function Onboarding({ onComplete }) {
                                 })}
                               </div>
                             ) : isSplit ? (
-                              <div className="space-y-1.5">
+                              <div className="space-y-2">
                                 {body.map((line, j) => {
                                   const clean = line.replace(/^[-•]\s*/, '').trim()
-                                  const colonIdx = clean.indexOf(':')
-                                  const day = colonIdx !== -1 ? clean.slice(0, colonIdx).replace(/\*\*/g, '') : ''
-                                  const focus = colonIdx !== -1 ? clean.slice(colonIdx + 1).trim().replace(/\*\*/g, '') : clean.replace(/\*\*/g, '')
+                                  // match **Day (Location):** rest of text
+                                  const match = clean.match(/^\*\*([^*]+)\*\*:?\s*(.*)/)
+                                  const day = match ? match[1].trim() : clean
+                                  const focus = match ? match[2].trim() : ''
+                                  const isRest = focus.toLowerCase().includes('rest')
                                   return (
-                                    <div key={j} className="flex items-center gap-2">
-                                      <span className="text-xs font-bold text-green-400 w-16 shrink-0">{day}</span>
-                                      <span className="text-sm text-gray-300">{focus}</span>
+                                    <div key={j} className="flex items-start gap-3 py-1.5 px-2 rounded-xl"
+                                      style={{ background: 'rgba(255,255,255,0.03)' }}>
+                                      <span className="text-xs font-bold text-green-400 w-20 shrink-0 pt-0.5">{day}</span>
+                                      <span className={`text-sm ${isRest ? 'text-gray-600' : 'text-gray-200'}`}>{focus || day}</span>
                                     </div>
                                   )
                                 })}

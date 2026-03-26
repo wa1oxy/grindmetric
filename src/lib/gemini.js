@@ -82,7 +82,10 @@ No intro. No fluff. Use **bold** for exercise names and key numbers. Use this ex
 ${hasCurrentPhoto && hasDreamPhoto ? 'From the photos: ' : ''}2 sentences. What's physically missing and what this plan targets.
 
 ## WEEKLY SPLIT
-One line per day. Label gym vs home. E.g: "**Mon (Gym):** Heavy Push | **Tue (Home):** Bodyweight Pull + Core"
+Each day on its OWN LINE. No pipes. Format exactly like this:
+**Mon (Gym):** Heavy Push
+**Tue (Home):** Decline Push-ups + Core
+**Wed:** Rest
 
 ## KEY LIFTS
 6-8 exercises covering both gym and home days. Format: "**Exercise Name** | sets x reps | why it matters for this goal"
