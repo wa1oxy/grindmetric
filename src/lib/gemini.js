@@ -34,10 +34,6 @@ function profileContext(profile) {
 }
 
 export async function getCoachingFeedback({ workouts, nutrition, weightTrend, streak, userProfile }) {
-  const key = cacheKey(`coaching_${new Date().toDateString()}`)
-  const cached = getCached(key)
-  if (cached) return cached
-
   const workoutSummary = workouts.length
     ? workouts.map(w => `${w.exercise} ${w.weight}lbs x${w.reps}x${w.sets}`).join(', ')
     : 'No workouts today'
@@ -49,11 +45,11 @@ Workouts: ${workoutSummary}
 Nutrition: ${nutrition.calories || 0} cal, ${nutrition.protein || 0}g protein, ${nutrition.carbs || 0}g carbs, ${nutrition.fat || 0}g fat
 Weight trend (last 7 days): ${weightTrend || 'No data'}
 Streak: ${streak} days consecutive
+Request time: ${new Date().toISOString()}
 
-Give exactly 2-3 sentences of personalized, honest feedback tailored to their goal and stats. No fluff. Specific advice on what to fix or keep.`
+Re-evaluate everything from scratch. Give exactly 2-3 sentences of personalized, honest feedback tailored to their goal and today's actual data. No fluff. Be specific — call out what's working and what needs to change right now.`
 
   const result = await callGemini(prompt)
-  if (result) setCache(key, result)
   return result
 }
 
