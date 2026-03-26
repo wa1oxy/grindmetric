@@ -72,22 +72,22 @@ ${additionalNotes ? `Additional context from client: ${additionalNotes}` : ''}
 ${hasCurrentPhoto ? 'Current physique photo provided (assess their starting point)' : ''}
 ${hasDreamPhoto ? 'Dream physique photo provided (this is their target look)' : ''}
 
-Use this exact format with ## headers. Be specific to this person — no generic advice.
+No intro. No fluff. No motivational language. Be brutally short. Use this exact format:
 
-## WHERE YOU ARE VS WHERE YOU WANT TO BE
-${hasCurrentPhoto && hasDreamPhoto ? 'Based on the photos provided: ' : ''}Honest 2-3 sentence comparison of their current build vs their goal physique. What's the real gap? What needs to change physically?
+## THE GAP
+${hasCurrentPhoto && hasDreamPhoto ? 'From the photos: ' : ''}One sentence. Current build vs goal — what specifically is missing.
 
-## THE PLAN
-Their ${daysPerWeek}-day weekly structure. Name each training day and what it targets. Keep it to one line per day.
+## WEEKLY SPLIT
+One line per day, no explanation. E.g: "Mon: Push | Tue: Pull | Wed: Legs | Thu: Rest..."
 
-## KEY MOVEMENTS
-5-6 exercises that will drive the most progress toward their specific goal. For each: name, sets x reps, and one-line reason why it matters for them.
+## KEY LIFTS
+4-5 exercises. One line each: "Exercise — sets x reps"
 
-## NUTRITION FOCUS
-2-3 sentences on what they need to eat to support this goal. Specific — calories, protein target, key habits.
+## NUTRITION
+One sentence. Calorie target + protein target. That's it.
 
-## REALISTIC TIMELINE
-Honest breakdown: what they'll notice in 4 weeks, 3 months, 6 months. No hype.`
+## TIMELINE
+One sentence. Honest.`
 
   const parts = [{ text: prompt }]
   if (currentPhotoBase64) parts.push({ inline_data: { mime_type: 'image/jpeg', data: currentPhotoBase64 } })
