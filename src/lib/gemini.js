@@ -146,6 +146,39 @@ Give a 3-sentence weekly summary personalized to their goal: what went well, wha
   return result
 }
 
+export async function analyzeWorkoutPlan({ workoutHistory, workoutPlan, dreamPhotoBase64, userProfile }) {
+  const recentLifts = workoutHistory.slice(0, 20).map(w => `${w.exercise} ${w.weight}lbs x${w.reps}x${w.sets}`).join('\n') || 'No workouts logged yet'
+
+  const prompt = `You are an elite coach reviewing whether this person's workout routine will actually transform their body into their goal physique.
+
+${profileContext(userProfile)}
+
+THEIR RECOMMENDED PLAN:
+${workoutPlan || 'No plan on file'}
+
+WHAT THEY'VE ACTUALLY BEEN LOGGING:
+${recentLifts}
+${dreamPhotoBase64 ? '\nDream physique photo attached — assess against this target.' : ''}
+
+No intro. Use **bold** for key points. Use this exact format:
+
+## VERDICT
+2 sentences. Is what they're doing aligned with their goal? Be honest.
+
+## GAPS
+2-3 bullet points. What's missing or wrong in their actual training vs what's needed.
+
+## ON TRACK FOR
+One sentence. What physique will their current routine actually build — not what they want, what they'll get.
+
+## ADJUSTMENTS
+3 bullet points. Specific changes to make right now to get back on track toward their goal.`
+
+  const parts = [{ text: prompt }]
+  if (dreamPhotoBase64) parts.push({ inline_data: { mime_type: 'image/jpeg', data: dreamPhotoBase64 } })
+  return callGemini(prompt, null, parts)
+}
+
 export async function customizeWorkoutPlan({ currentPlan, request, userProfile }) {
   const prompt = `You are an elite personal trainer. A client has a workout plan and wants to make a change.
 

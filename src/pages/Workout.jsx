@@ -1,8 +1,40 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useApp } from '../contexts/AppContext'
+import { analyzeWorkoutPlan } from '../lib/gemini'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { format } from 'date-fns'
+
+function parsePlanLifts(plan) {
+  if (!plan) return []
+  const match = plan.match(/## KEY LIFTS\n([\s\S]*?)(?=\n##|$)/)
+  if (!match) return []
+  return match[1].split('\n')
+    .map(l => l.replace(/^[-•]\s*/, '').trim())
+    .filter(Boolean)
+    .map(line => {
+      const parts = line.split('|').map(s => s.replace(/\*\*/g, '').trim())
+      if (!parts[0]) return null
+      const setsReps = parts[1] || ''
+      const setsMatch = setsReps.match(/(\d+)\s*[x×]\s*([\d\-]+)/)
+      return {
+        exercise: parts[0],
+        setsReps,
+        sets: setsMatch ? parseInt(setsMatch[1]) : 3,
+        reps: setsMatch ? parseInt(setsMatch[2]) : 10,
+        reason: parts[2] || '',
+      }
+    }).filter(Boolean)
+}
+
+function renderBold(text) {
+  if (!text) return null
+  return text.split(/(\*\*[^*]+\*\*)/).map((p, i) =>
+    p.startsWith('**') && p.endsWith('**')
+      ? <strong key={i} className="text-white font-bold">{p.slice(2, -2)}</strong>
+      : p
+  )
+}
 
 const PRESETS = [
   { name: 'Bench Press', emoji: '🏋️' },
@@ -41,7 +73,7 @@ function NumInput({ label, value, onChange, color = 'brand' }) {
 }
 
 export default function Workout() {
-  const { workouts, addWorkout, deleteWorkout } = useApp()
+  const { workouts, addWorkout, deleteWorkout, user } = useApp()
   const [exercise, setExercise] = useState('')
   const [custom, setCustom] = useState('')
   const [weight, setWeight] = useState('')
@@ -50,9 +82,40 @@ export default function Workout() {
   const [chartExercise, setChartExercise] = useState('Bench Press')
   const [toast, setToast] = useState(null)
   const [loggedId, setLoggedId] = useState(null)
+  const [showPlanSheet, setShowPlanSheet] = useState(false)
+  const [showAnalysis, setShowAnalysis] = useState(false)
+  const [analysisText, setAnalysisText] = useState('')
+  const [analyzing, setAnalyzing] = useState(false)
+  const [planDismissed, setPlanDismissed] = useState(false)
+
+  const workoutPlan = user?.profile?.workoutPlan
+  const planLifts = parsePlanLifts(workoutPlan)
+  const showCTA = workoutPlan && !planDismissed && planLifts.length > 0
 
   const selected = exercise || custom
   const oneRM = weight && reps ? calcOneRM(parseFloat(weight), parseInt(reps)) : null
+
+  const prefillExercise = (lift) => {
+    setExercise(lift.exercise)
+    setCustom('')
+    setSets(String(lift.sets))
+    setReps(String(lift.reps))
+    setShowPlanSheet(false)
+  }
+
+  const handleAnalyze = async () => {
+    setShowAnalysis(true)
+    if (analysisText) return
+    setAnalyzing(true)
+    const result = await analyzeWorkoutPlan({
+      workoutHistory: workouts,
+      workoutPlan,
+      dreamPhotoBase64: user?.profile?.dreamPhoto ? user.profile.dreamPhoto.split(',')[1] : null,
+      userProfile: user?.profile,
+    })
+    setAnalysisText(result || 'Could not analyze. Try again.')
+    setAnalyzing(false)
+  }
 
   const handleLog = () => {
     if (!selected || !weight || !reps || !sets) return
@@ -101,6 +164,30 @@ export default function Workout() {
       </AnimatePresence>
 
       <h2 className="text-[28px] font-black text-white mb-5 tracking-tight">Lift</h2>
+
+      {/* Plan CTA */}
+      <AnimatePresence>
+        {showCTA && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+            className="rounded-2xl p-4 mb-5"
+            style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)' }}>
+            <p className="text-xs text-green-400 font-bold uppercase tracking-widest mb-1">Your AI Plan is Ready</p>
+            <p className="text-sm text-gray-400 mb-3">Start with your recommended exercises or build your own.</p>
+            <div className="flex gap-2">
+              <motion.button whileTap={{ scale: 0.96 }} onClick={() => setShowPlanSheet(true)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-black"
+                style={{ background: 'linear-gradient(135deg,#22c55e,#4ade80)' }}>
+                📋 Use Recommended
+              </motion.button>
+              <motion.button whileTap={{ scale: 0.96 }} onClick={() => setPlanDismissed(true)}
+                className="px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-400"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                ✏️ Own Routine
+              </motion.button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Exercise selector */}
       <p className="section-label">Exercise</p>
@@ -164,10 +251,18 @@ export default function Workout() {
         whileTap={{ scale: 0.97 }}
         onClick={handleLog}
         disabled={!selected || !weight || !reps || !sets}
-        className="btn-primary w-full py-4 text-base mb-6 disabled:opacity-30 disabled:shadow-none"
+        className="btn-primary w-full py-4 text-base mb-3 disabled:opacity-30 disabled:shadow-none"
       >
         Log Workout
       </motion.button>
+
+      {workoutPlan && (
+        <motion.button whileTap={{ scale: 0.97 }} onClick={handleAnalyze}
+          className="w-full py-3 rounded-xl text-sm font-bold mb-6"
+          style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)', color: '#a5b4fc' }}>
+          🧠 Analyze My Workout Plan
+        </motion.button>
+      )}
 
       {/* Strength Chart */}
       <div className="card p-4 mb-4">
@@ -232,6 +327,86 @@ export default function Workout() {
           </div>
         ))}
       </div>
+      {/* Plan exercises sheet */}
+      <AnimatePresence>
+        {showPlanSheet && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 z-40" onClick={() => setShowPlanSheet(false)} />
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl p-5 pb-10 max-h-[80vh] overflow-y-auto"
+              style={{ background: '#141720', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-5" />
+              <p className="text-base font-black text-white mb-1">Recommended Exercises</p>
+              <p className="text-xs text-gray-500 mb-5">Tap an exercise to pre-fill the form, then enter your weight and log it.</p>
+              <div className="space-y-3">
+                {planLifts.map((lift, i) => (
+                  <motion.button key={i} whileTap={{ scale: 0.98 }} onClick={() => prefillExercise(lift)}
+                    className="w-full flex items-center gap-3 p-3.5 rounded-2xl text-left"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-white">{lift.exercise}</p>
+                      {lift.reason && <p className="text-xs text-gray-500 mt-0.5">{lift.reason}</p>}
+                    </div>
+                    <span className="text-xs font-bold text-green-400 bg-green-400/10 px-2.5 py-1 rounded-lg shrink-0">{lift.setsReps}</span>
+                  </motion.button>
+                ))}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Analyze overlay */}
+      <AnimatePresence>
+        {showAnalysis && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 z-40" onClick={() => setShowAnalysis(false)} />
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl p-5 pb-10 max-h-[85vh] overflow-y-auto"
+              style={{ background: '#141720', border: '1px solid rgba(99,102,241,0.2)' }}>
+              <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-5" />
+              <p className="text-base font-black text-white mb-1">🧠 Plan Analysis</p>
+              <p className="text-xs text-gray-500 mb-5">AI review of your routine vs your goal physique.</p>
+              {analyzing ? (
+                <div className="flex flex-col items-center py-10 gap-4">
+                  <div className="flex gap-1">
+                    {[0,1,2].map(i => (
+                      <motion.div key={i} className="w-2 h-2 bg-indigo-400 rounded-full"
+                        animate={{ y: [0,-8,0] }} transition={{ repeat: Infinity, duration: 0.8, delay: i * 0.15 }} />
+                    ))}
+                  </div>
+                  <p className="text-sm text-gray-500">Analyzing your workouts...</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {analysisText.split('\n\n').map((block, i) => {
+                    const lines = block.trim().split('\n')
+                    const isHeader = lines[0].startsWith('##')
+                    const header = isHeader ? lines[0].replace(/^#+\s*/, '') : null
+                    const body = isHeader ? lines.slice(1).filter(Boolean) : lines.filter(Boolean)
+                    return (
+                      <div key={i} className="rounded-2xl p-4"
+                        style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)' }}>
+                        {header && <p className="text-[10px] font-bold tracking-widest text-indigo-400 uppercase mb-2">{header}</p>}
+                        {body.map((line, j) => (
+                          <p key={j} className="text-sm text-gray-300 leading-relaxed mb-1">
+                            {renderBold(line.replace(/^[-•]\s*/, ''))}
+                          </p>
+                        ))}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
     </div>
   )
 }
