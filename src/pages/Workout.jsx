@@ -211,13 +211,14 @@ function LogModal({ exercise, defaultSets, defaultReps, onLog, onClose }) {
 // ─── AI Tips Chat ────────────────────────────────────────────────────────────
 const INITIAL_MESSAGE = { role: 'ai', text: "Ask me anything — form tips, exercise swaps, recovery, nutrition, programming questions. I have access to all your data." }
 
-function AiTipsChat({ user, todayWorkouts, todayNutrition, todayFoods, foods, workouts, weightLogs, streak, onClose }) {
+function AiTipsChat({ user, todayWorkouts, todayNutrition, todayFoods, foods, workouts, weightLogs, streak, saveProfile, onClose }) {
   const chatKey = `gm_ai_chat_${new Date().toISOString().split('T')[0]}`
   const [messages, setMessagesState] = useState(() => {
     try { const saved = JSON.parse(localStorage.getItem(chatKey)); return saved?.length ? saved : [INITIAL_MESSAGE] } catch { return [INITIAL_MESSAGE] }
   })
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [savedMemory, setSavedMemory] = useState(null)
   const bottomRef = useRef(null)
 
   const setMessages = (updater) => {
@@ -248,7 +249,20 @@ function AiTipsChat({ user, todayWorkouts, todayNutrition, todayFoods, foods, wo
       weightLogs,
       streak,
     })
-    setMessages(m => [...m, { role: 'ai', text: result || "Sorry, couldn't get a response. Try again." }])
+    const raw = result || "Sorry, couldn't get a response. Try again."
+
+    // Parse and save any [MEMORY: ...] tags
+    const memMatch = raw.match(/\[MEMORY:\s*(.+?)\]/i)
+    if (memMatch && saveProfile) {
+      const note = memMatch[1].trim()
+      const existing = user?.profile?.aiMemory || ''
+      const updated = existing ? `${existing}\n- ${note}` : `- ${note}`
+      saveProfile({ aiMemory: updated })
+      setSavedMemory(note)
+      setTimeout(() => setSavedMemory(null), 3000)
+    }
+    const cleanText = raw.replace(/\[MEMORY:.*?\]\n?/gi, '').trim()
+    setMessages(m => [...m, { role: 'ai', text: cleanText }])
     setLoading(false)
   }
 
@@ -262,12 +276,23 @@ function AiTipsChat({ user, todayWorkouts, todayNutrition, todayFoods, foods, wo
         style={{ background:'#0d1117', border:'1px solid rgba(34,197,94,0.25)', maxHeight:'80vh', paddingBottom:'env(safe-area-inset-bottom)' }}>
         <div className="px-5 pt-5 pb-3 shrink-0">
           <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mb-4" />
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-brand-500/20 flex items-center justify-center text-lg">🤖</div>
-            <div>
-              <p className="text-base font-black text-white leading-none">AI Coach</p>
-              <p className="text-[10px] text-brand-500 font-semibold">Ask anything fitness</p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-2xl bg-brand-500/20 flex items-center justify-center text-lg">🤖</div>
+              <div>
+                <p className="text-base font-black text-white leading-none">AI Coach</p>
+                <p className="text-[10px] text-brand-500 font-semibold">Ask anything fitness</p>
+              </div>
             </div>
+            <AnimatePresence>
+              {savedMemory && (
+                <motion.div initial={{ opacity:0, scale:0.9 }} animate={{ opacity:1, scale:1 }} exit={{ opacity:0, scale:0.9 }}
+                  className="text-[10px] font-bold px-3 py-1.5 rounded-full"
+                  style={{ background:'rgba(34,197,94,0.15)', border:'1px solid rgba(34,197,94,0.3)', color:'#4ade80' }}>
+                  ✓ Remembered
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3 min-h-0">
@@ -826,6 +851,7 @@ export default function Workout() {
             workouts={workouts}
             weightLogs={weightLogs}
             streak={streak}
+            saveProfile={saveProfile}
             onClose={() => setShowAiChat(false)}
           />
         )}

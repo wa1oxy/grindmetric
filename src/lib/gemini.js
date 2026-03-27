@@ -40,6 +40,7 @@ function profileContext(profile) {
     lines.push(`Gym schedule: ${days}`)
   }
   if (profile.additionalNotes) lines.push(`User's own notes from signup: "${profile.additionalNotes}"`)
+  if (profile.aiMemory) lines.push(`\nREMEMBERED PREFERENCES & NOTES (user asked you to keep these in mind):\n${profile.aiMemory}`)
   return lines.length ? `USER PROFILE:\n${lines.join('\n')}` : ''
 }
 
@@ -101,7 +102,7 @@ Re-evaluate everything from scratch. Give 3-4 sentences of brutally honest, hype
   return result
 }
 
-export async function generateWorkoutPlan({ name, goal, daysPerWeek, sessionDuration, preferredTime, intensity, age, weight, height, sex, additionalNotes, hasCurrentPhoto, hasDreamPhoto, currentPhotoBase64, dreamPhotoBase64 }) {
+export async function generateWorkoutPlan({ name, goal, daysPerWeek, sessionDuration, preferredTime, intensity, age, weight, height, sex, additionalNotes, aiMemory, hasCurrentPhoto, hasDreamPhoto, currentPhotoBase64, dreamPhotoBase64 }) {
   const stats = [age && `Age: ${age}`, weight && `Weight: ${weight}kg`, height && `Height: ${height}cm`, sex && `Sex: ${sex}`].filter(Boolean).join(', ')
 
   const prompt = `You are an elite personal trainer building a highly specific plan. Think carefully before writing anything.
@@ -110,6 +111,7 @@ CLIENT:
 Name: ${name} | Goal: ${goal} | ${daysPerWeek} days/week | ${sessionDuration} min sessions | Intensity: ${intensity}/5
 ${stats ? `Stats: ${stats}` : ''}
 ${additionalNotes ? `IMPORTANT — Client notes (read carefully and build the entire plan around this): "${additionalNotes}"` : ''}
+${aiMemory ? `REMEMBERED PREFERENCES (factor these into the plan): ${aiMemory}` : ''}
 ${hasCurrentPhoto ? 'Current physique photo provided.' : ''}${hasDreamPhoto ? ' Dream physique photo provided.' : ''}
 
 RULES BEFORE YOU WRITE:
@@ -372,6 +374,8 @@ LAST 7 DAYS:
 
 Conversation:
 ${history}
+
+MEMORY INSTRUCTIONS: If the user asks you to remember, save, or keep in mind something, append [MEMORY: <concise one-line note>] on its own line at the very end of your response. Only add this tag when explicitly asked to remember something. Keep the note brief and factual.
 
 Respond as the Coach. Be direct, specific, and reference the user's actual numbers when relevant. 2-4 sentences unless a detailed breakdown is genuinely needed.`
 
