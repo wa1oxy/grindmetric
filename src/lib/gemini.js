@@ -21,33 +21,81 @@ function getCached(key) {
 function profileContext(profile) {
   if (!profile) return ''
   const lines = []
-  if (profile.goal) lines.push(`Goal: ${profile.goal.replace(/_/g, ' ')}`)
-  if (profile.daysPerWeek) lines.push(`Trains ${profile.daysPerWeek} days/week`)
-  if (profile.sessionDuration) lines.push(`Sessions: ${profile.sessionDuration} min`)
-  if (profile.intensity) lines.push(`Intensity: ${profile.intensity}/5`)
+  if (profile.goal) lines.push(`Primary goal: ${profile.goal.replace(/_/g, ' ')}`)
+  if (profile.sex) lines.push(`Sex: ${profile.sex}`)
   if (profile.age) lines.push(`Age: ${profile.age}`)
   if (profile.weight) lines.push(`Weight: ${profile.weight}kg`)
   if (profile.height) lines.push(`Height: ${profile.height}cm`)
-  if (profile.sex) lines.push(`Sex: ${profile.sex}`)
-  if (profile.additionalNotes) lines.push(`User notes: ${profile.additionalNotes}`)
-  return lines.length ? `\nUser profile:\n${lines.join('\n')}` : ''
+  if (profile.daysPerWeek) lines.push(`Training days per week: ${profile.daysPerWeek}`)
+  if (profile.sessionDuration) lines.push(`Session length: ${profile.sessionDuration} min`)
+  if (profile.preferredTime) lines.push(`Preferred time: ${profile.preferredTime}`)
+  if (profile.intensity) lines.push(`Self-rated intensity: ${profile.intensity}/5`)
+  if (profile.nutritionGoals) {
+    const g = profile.nutritionGoals
+    lines.push(`Daily targets: ${g.calories} cal, ${g.protein}g protein, ${g.carbs}g carbs, ${g.fat}g fat`)
+  }
+  if (profile.workoutPlan) lines.push(`Has an AI-generated workout plan: yes`)
+  if (profile.gymSchedule) {
+    const days = Object.entries(profile.gymSchedule).map(([d, t]) => `${d}:${t}`).join(', ')
+    lines.push(`Gym schedule: ${days}`)
+  }
+  if (profile.additionalNotes) lines.push(`User's own notes from signup: "${profile.additionalNotes}"`)
+  return lines.length ? `USER PROFILE:\n${lines.join('\n')}` : ''
 }
 
-export async function getCoachingFeedback({ workouts, nutrition, weightTrend, streak, userProfile }) {
+export async function getCoachingFeedback({ workouts, nutrition, weightTrend, streak, userProfile, workoutHistory, weightLogs, foods, goals }) {
   const workoutSummary = workouts.length
     ? workouts.map(w => `${w.exercise} ${w.weight}lbs x${w.reps}x${w.sets}`).join(', ')
     : 'No workouts today'
 
-  const prompt = `You are an elite, brutally honest personal fitness coach. ${profileContext(userProfile)}
+  // Last 7 days of workout history
+  const historyLines = (workoutHistory || []).slice(0, 30).map(w => `${w.exercise} ${w.weight}lbs x${w.reps}x${w.sets}`).join(', ') || 'No recent history'
 
-Today this user logged:
+  // PRs: max weight per exercise across all history
+  const prMap = {}
+  ;(workoutHistory || []).forEach(w => {
+    if (!prMap[w.exercise] || w.weight > prMap[w.exercise]) prMap[w.exercise] = w.weight
+  })
+  const prLines = Object.entries(prMap).slice(0, 8).map(([ex, wt]) => `${ex}: ${wt}lbs`).join(', ') || 'No PRs yet'
+
+  // Weekly nutrition averages (last 7 days of food logs)
+  const weekFoods = (foods || []).filter(f => new Date(f.created_at) > new Date(Date.now() - 7 * 86400000))
+  const dayMap = {}
+  weekFoods.forEach(f => {
+    const d = f.created_at.split('T')[0]
+    if (!dayMap[d]) dayMap[d] = { cal: 0, protein: 0 }
+    dayMap[d].cal += f.calories || 0
+    dayMap[d].protein += f.protein_g || 0
+  })
+  const dayCount = Object.keys(dayMap).length
+  const avgCal = dayCount ? Math.round(Object.values(dayMap).reduce((s, d) => s + d.cal, 0) / dayCount) : 0
+  const avgProtein = dayCount ? Math.round(Object.values(dayMap).reduce((s, d) => s + d.protein, 0) / dayCount) : 0
+
+  // Weight logs summary
+  const weightSummary = (weightLogs || []).slice(0, 7).map(w => `${w.log_date || w.created_at?.split('T')[0]}: ${w.weight_kg}kg`).join(', ') || weightTrend || 'No data'
+
+  // Goal adherence
+  const calGoal = goals?.calories || userProfile?.nutritionGoals?.calories
+  const proteinGoal = goals?.protein || userProfile?.nutritionGoals?.protein
+  const calAdherence = calGoal ? `${nutrition.calories || 0}/${calGoal} cal (${Math.round(((nutrition.calories || 0) / calGoal) * 100)}%)` : `${nutrition.calories || 0} cal`
+  const proteinAdherence = proteinGoal ? `${nutrition.protein || 0}/${proteinGoal}g protein (${Math.round(((nutrition.protein || 0) / proteinGoal) * 100)}%)` : `${nutrition.protein || 0}g protein`
+
+  const prompt = `You are an elite, brutally honest personal fitness coach with full access to this user's data. ${profileContext(userProfile)}
+
+TODAY (${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}):
 Workouts: ${workoutSummary}
-Nutrition: ${nutrition.calories || 0} cal, ${nutrition.protein || 0}g protein, ${nutrition.carbs || 0}g carbs, ${nutrition.fat || 0}g fat
-Weight trend (last 7 days): ${weightTrend || 'No data'}
-Streak: ${streak} days consecutive
-Request time: ${new Date().toISOString()}
+Calories: ${calAdherence}
+Protein: ${proteinAdherence}
+Carbs: ${nutrition.carbs || 0}g | Fat: ${nutrition.fat || 0}g
 
-Re-evaluate everything from scratch. Give exactly 2-3 sentences of personalized, honest feedback tailored to their goal and today's actual data. No fluff. Be specific — call out what's working and what needs to change right now.`
+RECENT HISTORY (last 7 days):
+Workouts: ${historyLines}
+Personal Records: ${prLines}
+Weekly avg: ${avgCal} cal/day, ${avgProtein}g protein/day (over ${dayCount} tracked days)
+Weight log: ${weightSummary}
+Streak: ${streak} days consecutive
+
+Re-evaluate everything from scratch. Give 3-4 sentences of brutally honest, hyper-personalized feedback based on ALL this data. Be specific — reference their actual exercises, weights, PRs, nutrition numbers, and how they align with their stated goal. Call out what's working and what must change right now. No generic advice.`
 
   const result = await callGemini(prompt)
   return result
@@ -251,6 +299,17 @@ Be accurate with common portions. If amounts are vague, use standard serving siz
   } catch {
     return null
   }
+}
+
+export async function chatWithCoach({ messages, userProfile }) {
+  const history = messages.map(m => `${m.role === 'user' ? 'User' : 'Coach'}: ${m.text}`).join('\n')
+  const prompt = `You are an elite personal fitness and nutrition coach. ${profileContext(userProfile)}
+
+Conversation so far:
+${history}
+
+Respond as the Coach with practical, specific advice. Keep answers focused and concise (2-4 sentences max unless a detailed breakdown is needed). No generic filler — be direct and useful.`
+  return callGemini(prompt)
 }
 
 function stripDataUrl(dataUrl) {

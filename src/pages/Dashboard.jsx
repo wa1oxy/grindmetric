@@ -144,7 +144,19 @@ export default function Dashboard({ onNavigate }) {
     setAiText(null)
     setAiLoading(true)
     setAiOpen(true)
-    const text = await getCoachingFeedback({ workouts: todayWorkouts, nutrition: todayNutrition, weightTrend, streak, userProfile: user?.profile })
+    const last7days = new Date(Date.now() - 7 * 86400000)
+    const recentWorkouts = workouts.filter(w => new Date(w.created_at) > last7days)
+    const text = await getCoachingFeedback({
+      workouts: todayWorkouts,
+      nutrition: todayNutrition,
+      weightTrend,
+      streak,
+      userProfile: user?.profile,
+      workoutHistory: recentWorkouts,
+      weightLogs,
+      foods,
+      goals: user?.profile?.nutritionGoals || calculateNutritionGoals(user?.profile),
+    })
     setAiText(text || 'AI coaching requires a Gemini API key — contact the app admin.')
     setAiLoading(false)
     startCooldown(60)

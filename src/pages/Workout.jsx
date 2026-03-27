@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useApp } from '../contexts/AppContext'
-import { analyzeWorkoutPlan, customizeWorkoutPlan } from '../lib/gemini'
+import { analyzeWorkoutPlan, customizeWorkoutPlan, chatWithCoach } from '../lib/gemini'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { format } from 'date-fns'
 
@@ -125,12 +125,12 @@ function LogModal({ exercise, defaultSets, defaultReps, onLog, onClose }) {
   return (
     <>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="fixed inset-0 z-40 backdrop-blur-md" style={{ background: 'rgba(0,0,0,0.75)' }}
+        className="fixed inset-0 z-[55] backdrop-blur-md" style={{ background: 'rgba(0,0,0,0.75)' }}
         onClick={onClose} />
       <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 30, stiffness: 320 }}
-        className="fixed bottom-0 left-0 right-0 z-50 rounded-t-[28px] px-5 pt-5"
-        style={{ background: '#0d1117', border: `1px solid ${cat.color}30`, boxShadow: `0 -12px 60px ${cat.color}18, 0 -2px 0 ${cat.color}40`, paddingBottom: 'max(40px, env(safe-area-inset-bottom))' }}>
+        className="fixed bottom-0 left-0 right-0 z-[60] rounded-t-[28px] px-5 pt-5"
+        style={{ background: '#0d1117', border: `1px solid ${cat.color}30`, boxShadow: `0 -12px 60px ${cat.color}18, 0 -2px 0 ${cat.color}40`, paddingBottom: 'max(110px, calc(env(safe-area-inset-bottom) + 90px))' }}>
 
         <div className="w-10 h-1 rounded-full mx-auto mb-5" style={{ background: cat.color + '40' }} />
 
@@ -203,6 +203,84 @@ function LogModal({ exercise, defaultSets, defaultReps, onLog, onClose }) {
           style={{ background: `linear-gradient(135deg, ${cat.color}, ${cat.color}cc)`, boxShadow: `0 4px 24px ${cat.color}40` }}>
           Log It 💪
         </motion.button>
+      </motion.div>
+    </>
+  )
+}
+
+// ─── AI Tips Chat ────────────────────────────────────────────────────────────
+function AiTipsChat({ user, onClose }) {
+  const [messages, setMessages] = useState([
+    { role: 'ai', text: "Ask me anything — form tips, exercise swaps, recovery, programming questions, anything fitness-related." }
+  ])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const bottomRef = useRef(null)
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading])
+
+  const send = async () => {
+    if (!input.trim() || loading) return
+    const req = input.trim()
+    setInput('')
+    const newMessages = [...messages, { role: 'user', text: req }]
+    setMessages(newMessages)
+    setLoading(true)
+    const result = await chatWithCoach({ messages: newMessages, userProfile: user?.profile })
+    setMessages(m => [...m, { role: 'ai', text: result || "Sorry, couldn't get a response. Try again." }])
+    setLoading(false)
+  }
+
+  return (
+    <>
+      <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+        className="fixed inset-0 z-[55] backdrop-blur-md" style={{ background:'rgba(0,0,0,0.75)' }} onClick={onClose} />
+      <motion.div initial={{ y:'100%' }} animate={{ y:0 }} exit={{ y:'100%' }}
+        transition={{ type:'spring', damping:30, stiffness:320 }}
+        className="fixed bottom-0 left-0 right-0 z-[60] rounded-t-[28px] flex flex-col"
+        style={{ background:'#0d1117', border:'1px solid rgba(34,197,94,0.25)', maxHeight:'80vh', paddingBottom:'env(safe-area-inset-bottom)' }}>
+        <div className="px-5 pt-5 pb-3 shrink-0">
+          <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mb-4" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-2xl bg-brand-500/20 flex items-center justify-center text-lg">🤖</div>
+            <div>
+              <p className="text-base font-black text-white leading-none">AI Coach</p>
+              <p className="text-[10px] text-brand-500 font-semibold">Ask anything fitness</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3 min-h-0">
+          {messages.map((m, i) => (
+            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className="max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-relaxed"
+                style={m.role === 'user'
+                  ? { background:'rgba(34,197,94,0.15)', border:'1px solid rgba(34,197,94,0.25)', color:'#d1fae5' }
+                  : { background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)', color:'#d1d5db' }}>
+                {m.text}
+              </div>
+            </div>
+          ))}
+          {loading && (
+            <div className="flex justify-start">
+              <div className="rounded-2xl px-4 py-3 flex gap-1.5 items-center" style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)' }}>
+                {[0,1,2].map(i => <motion.div key={i} className="w-1.5 h-1.5 bg-brand-400 rounded-full" animate={{ y:[0,-4,0] }} transition={{ repeat:Infinity, duration:0.7, delay:i*0.12 }} />)}
+              </div>
+            </div>
+          )}
+          <div ref={bottomRef} />
+        </div>
+        <div className="px-4 py-3 shrink-0 flex gap-2" style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingBottom:'max(16px, calc(env(safe-area-inset-bottom) + 8px))' }}>
+          <input value={input} onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && send()}
+            placeholder='e.g. "How do I fix my squat form?"'
+            className="flex-1 px-4 py-3 rounded-2xl text-sm text-white outline-none"
+            style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)' }} />
+          <motion.button whileTap={{ scale:0.92 }} onClick={send} disabled={!input.trim() || loading}
+            className="w-12 h-12 rounded-2xl flex items-center justify-center font-black text-black text-lg disabled:opacity-30"
+            style={{ background:'linear-gradient(135deg,#22c55e,#4ade80)' }}>
+            ↑
+          </motion.button>
+        </div>
       </motion.div>
     </>
   )
@@ -417,6 +495,7 @@ export default function Workout() {
   const [showAnalysis, setShowAnalysis] = useState(false)
   const [showSchedule, setShowSchedule] = useState(false)
   const [showPlanChat, setShowPlanChat] = useState(false)
+  const [showAiChat, setShowAiChat] = useState(false)
   const [toast, setToast] = useState(null)
   const [chartExercise, setChartExercise] = useState('')
   const [currentPlan, setCurrentPlan] = useState(() => user?.profile?.workoutPlan || '')
@@ -472,8 +551,7 @@ export default function Workout() {
         {toast && (
           <motion.div initial={{ opacity:0, y:-16, scale:0.9 }} animate={{ opacity:1, y:0, scale:1 }} exit={{ opacity:0, scale:0.9 }}
             className="fixed left-1/2 -translate-x-1/2 z-50 text-sm font-black px-6 py-3 rounded-full whitespace-nowrap"
-            style={{ top: 'max(24px, calc(env(safe-area-inset-top) + 8px))' }}
-            style={{ background:'linear-gradient(135deg,#22c55e,#4ade80)', color:'#000', boxShadow:'0 4px 24px rgba(34,197,94,0.5)' }}>
+            style={{ top: 'max(24px, calc(env(safe-area-inset-top) + 8px))', background:'linear-gradient(135deg,#22c55e,#4ade80)', color:'#000', boxShadow:'0 4px 24px rgba(34,197,94,0.5)' }}>
             {toast}
           </motion.div>
         )}
@@ -493,6 +571,11 @@ export default function Workout() {
           </div>
         </div>
         <div className="flex gap-2">
+          <motion.button whileTap={{ scale:0.92 }} onClick={() => setShowAiChat(true)}
+            className="flex items-center gap-1.5 px-3 py-2.5 rounded-2xl text-xs font-bold"
+            style={{ background:'rgba(34,197,94,0.1)', border:'1px solid rgba(34,197,94,0.2)', color:'#4ade80' }}>
+            🤖
+          </motion.button>
           {workoutPlan && (
             <>
               <motion.button whileTap={{ scale:0.92 }} onClick={() => setShowPlanChat(true)}
@@ -710,6 +793,9 @@ export default function Workout() {
             onClose={() => setShowPlanChat(false)}
           />
         )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showAiChat && <AiTipsChat user={user} onClose={() => setShowAiChat(false)} />}
       </AnimatePresence>
     </div>
   )
