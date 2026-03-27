@@ -209,13 +209,24 @@ function LogModal({ exercise, defaultSets, defaultReps, onLog, onClose }) {
 }
 
 // ─── AI Tips Chat ────────────────────────────────────────────────────────────
+const INITIAL_MESSAGE = { role: 'ai', text: "Ask me anything — form tips, exercise swaps, recovery, nutrition, programming questions. I have access to all your data." }
+
 function AiTipsChat({ user, todayWorkouts, todayNutrition, todayFoods, foods, workouts, weightLogs, streak, onClose }) {
-  const [messages, setMessages] = useState([
-    { role: 'ai', text: "Ask me anything — form tips, exercise swaps, recovery, nutrition, programming questions. I have access to all your data." }
-  ])
+  const chatKey = `gm_ai_chat_${new Date().toISOString().split('T')[0]}`
+  const [messages, setMessagesState] = useState(() => {
+    try { const saved = JSON.parse(localStorage.getItem(chatKey)); return saved?.length ? saved : [INITIAL_MESSAGE] } catch { return [INITIAL_MESSAGE] }
+  })
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const bottomRef = useRef(null)
+
+  const setMessages = (updater) => {
+    setMessagesState(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      localStorage.setItem(chatKey, JSON.stringify(next))
+      return next
+    })
+  }
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading])
 
