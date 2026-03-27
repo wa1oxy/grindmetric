@@ -209,9 +209,9 @@ function LogModal({ exercise, defaultSets, defaultReps, onLog, onClose }) {
 }
 
 // ─── AI Tips Chat ────────────────────────────────────────────────────────────
-function AiTipsChat({ user, onClose }) {
+function AiTipsChat({ user, todayWorkouts, todayNutrition, todayFoods, foods, workouts, weightLogs, streak, onClose }) {
   const [messages, setMessages] = useState([
-    { role: 'ai', text: "Ask me anything — form tips, exercise swaps, recovery, programming questions, anything fitness-related." }
+    { role: 'ai', text: "Ask me anything — form tips, exercise swaps, recovery, nutrition, programming questions. I have access to all your data." }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -226,7 +226,17 @@ function AiTipsChat({ user, onClose }) {
     const newMessages = [...messages, { role: 'user', text: req }]
     setMessages(newMessages)
     setLoading(true)
-    const result = await chatWithCoach({ messages: newMessages, userProfile: user?.profile })
+    const result = await chatWithCoach({
+      messages: newMessages,
+      userProfile: user?.profile,
+      todayWorkouts,
+      todayNutrition,
+      todayFoods,
+      foods,
+      workouts,
+      weightLogs,
+      streak,
+    })
     setMessages(m => [...m, { role: 'ai', text: result || "Sorry, couldn't get a response. Try again." }])
     setLoading(false)
   }
@@ -489,7 +499,7 @@ function ExerciseRow({ exercise, sub, onLog, showPR, pr, delay = 0 }) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function Workout() {
-  const { workouts, addWorkout, deleteWorkout, user, saveProfile } = useApp()
+  const { workouts, addWorkout, deleteWorkout, user, saveProfile, todayWorkouts, todayNutrition, todayFoods, foods, weightLogs, streak } = useApp()
   const [search, setSearch] = useState('')
   const [logTarget, setLogTarget] = useState(null)
   const [showAnalysis, setShowAnalysis] = useState(false)
@@ -795,7 +805,19 @@ export default function Workout() {
         )}
       </AnimatePresence>
       <AnimatePresence>
-        {showAiChat && <AiTipsChat user={user} onClose={() => setShowAiChat(false)} />}
+        {showAiChat && (
+          <AiTipsChat
+            user={user}
+            todayWorkouts={todayWorkouts}
+            todayNutrition={todayNutrition}
+            todayFoods={todayFoods}
+            foods={foods}
+            workouts={workouts}
+            weightLogs={weightLogs}
+            streak={streak}
+            onClose={() => setShowAiChat(false)}
+          />
+        )}
       </AnimatePresence>
     </div>
   )

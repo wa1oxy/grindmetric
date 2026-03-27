@@ -301,14 +301,80 @@ Be accurate with common portions. If amounts are vague, use standard serving siz
   }
 }
 
-export async function chatWithCoach({ messages, userProfile }) {
-  const history = messages.map(m => `${m.role === 'user' ? 'User' : 'Coach'}: ${m.text}`).join('\n')
-  const prompt = `You are an elite personal fitness and nutrition coach. ${profileContext(userProfile)}
+export async function chatWithCoach({ messages, userProfile, todayWorkouts, todayNutrition, todayFoods, foods, workouts, weightLogs, streak }) {
+  // Today's workouts
+  const todayLifts = (todayWorkouts || []).length
+    ? (todayWorkouts || []).map(w => `${w.exercise} ${w.weight > 0 ? w.weight + 'lbs' : 'bodyweight'} x${w.reps}x${w.sets}`).join(', ')
+    : 'None logged yet'
 
-Conversation so far:
+  // Today's food breakdown
+  const todayMeals = (todayFoods || []).length
+    ? (todayFoods || []).map(f => `${f.food_name} (${f.calories}cal, ${f.protein_g || 0}g P)`).join(', ')
+    : 'Nothing logged yet'
+
+  const nut = todayNutrition || { calories: 0, protein: 0, carbs: 0, fat: 0 }
+  const goals = userProfile?.nutritionGoals
+  const calLine = goals
+    ? `${nut.calories}/${goals.calories} cal (${Math.round((nut.calories / goals.calories) * 100)}% of goal)`
+    : `${nut.calories} cal`
+  const proteinLine = goals
+    ? `${nut.protein}/${goals.protein}g protein (${Math.round((nut.protein / goals.protein) * 100)}% of goal)`
+    : `${nut.protein}g protein`
+
+  // Weekly nutrition averages
+  const weekFoods = (foods || []).filter(f => new Date(f.created_at) > new Date(Date.now() - 7 * 86400000))
+  const dayMap = {}
+  weekFoods.forEach(f => {
+    const d = f.created_at.split('T')[0]
+    if (!dayMap[d]) dayMap[d] = { cal: 0, protein: 0 }
+    dayMap[d].cal += f.calories || 0
+    dayMap[d].protein += f.protein_g || 0
+  })
+  const dayCount = Object.keys(dayMap).length
+  const avgCal = dayCount ? Math.round(Object.values(dayMap).reduce((s, d) => s + d.cal, 0) / dayCount) : 0
+  const avgProtein = dayCount ? Math.round(Object.values(dayMap).reduce((s, d) => s + d.protein, 0) / dayCount) : 0
+
+  // PRs
+  const prMap = {}
+  ;(workouts || []).forEach(w => { if (!prMap[w.exercise] || w.weight > prMap[w.exercise]) prMap[w.exercise] = w.weight })
+  const prLines = Object.entries(prMap).slice(0, 10).map(([ex, wt]) => `${ex}: ${wt}lbs`).join(', ') || 'None yet'
+
+  // Weight trend
+  const weightSummary = (weightLogs || []).slice(0, 5).map(w => `${w.log_date || w.created_at?.split('T')[0]}: ${w.weight_kg}kg`).join(', ') || 'No data'
+
+  // Last 7 days workout history
+  const recentLifts = (workouts || [])
+    .filter(w => new Date(w.created_at) > new Date(Date.now() - 7 * 86400000))
+    .slice(0, 20)
+    .map(w => `${w.exercise} ${w.weight > 0 ? w.weight + 'lbs' : 'BW'} x${w.reps}x${w.sets}`)
+    .join(', ') || 'None'
+
+  const history = messages.map(m => `${m.role === 'user' ? 'User' : 'Coach'}: ${m.text}`).join('\n')
+
+  const prompt = `You are an elite personal fitness and nutrition coach with FULL access to this user's real data. Use it to give specific, personalized answers — never say you don't have access to their data.
+
+${profileContext(userProfile)}
+
+TODAY (${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}):
+- Workouts: ${todayLifts}
+- Calories: ${calLine}
+- Protein: ${proteinLine}
+- Carbs: ${nut.carbs}g | Fat: ${nut.fat}g
+- Food logged: ${todayMeals}
+
+LAST 7 DAYS:
+- Workouts: ${recentLifts}
+- Avg calories/day: ${avgCal} cal (over ${dayCount} tracked days)
+- Avg protein/day: ${avgProtein}g
+- Personal records: ${prLines}
+- Weight log: ${weightSummary}
+- Current streak: ${streak || 0} days
+
+Conversation:
 ${history}
 
-Respond as the Coach with practical, specific advice. Keep answers focused and concise (2-4 sentences max unless a detailed breakdown is needed). No generic filler — be direct and useful.`
+Respond as the Coach. Be direct, specific, and reference the user's actual numbers when relevant. 2-4 sentences unless a detailed breakdown is genuinely needed.`
+
   return callGemini(prompt)
 }
 
